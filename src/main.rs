@@ -1,0 +1,422 @@
+mod player;
+mod action;
+mod role;
+mod game;
+mod debug;
+mod message;
+use std::env;
+use game::GameStatus;
+use action::{Action,ActionType, get_header_text, get_menu_text};
+use role::Role;
+use std::error;
+use std::collections::HashMap;
+use std::io;
+use std::io::Write;
+use std::io::Error;
+use rand::thread_rng;
+use player::Player;
+use player::PlayerId;
+use rand::seq::SliceRandom;
+
+fn main() -> Result<(), Box<dyn error::Error>> {
+    let args: Vec<String> = env::args().collect();
+    let debug = args.contains(&String::from("--debug"));
+
+    let players_names = get_players_list(debug)?;
+    let number_of_players = u32::try_from(players_names.len()).unwrap();
+    let mut roles = role::get_roles(number_of_players)?;
+    roles.shuffle(&mut thread_rng());
+    let (players, keys_to_ids) = create_players(players_names, roles);
+
+    let mut game = GameStatus::new(players);
+    game.debug = debug;
+    start_game(game);
+
+    return Ok(());
+}
+
+// Consumes both names_to_keys and roles
+fn create_players<'a>(names_to_keys: HashMap<String, String>, mut roles: Vec<Role>)
+    -> (Vec<Player>, HashMap<String, PlayerId>) {
+    let mut next_user_id = 0;
+    let mut players: Vec<Player> = Vec::new();
+    let mut keys_to_ids: HashMap<String, PlayerId> = HashMap::new();
+    for (name, key) in names_to_keys {
+        keys_to_ids.insert(key.clone(), next_user_id);
+        let role = roles.pop().unwrap();
+        let player = Player::new(next_user_id, key, name, role);
+        players.push(player);
+        next_user_id += 1;
+    }
+    return (players, keys_to_ids);
+}
+
+fn get_players_list(use_debug: bool) -> Result<HashMap<String, String>, Error> {
+    let mut keys: Vec<usize> = (100..1000).collect();
+    if use_debug {
+        keys.reverse(); // Want ids to be 100 101 102 ... in debug
+    } else {
+        keys.shuffle(&mut thread_rng());
+    }
+
+    let mut players: HashMap<String, String> = HashMap::new();
+    loop {
+        clear_terminal(None);
+        let message = "Enter your name (or enter DONE if no more players):";
+        let input;
+        if use_debug {
+            if players.len() == debug::NAMES.len() {
+                break;
+            }
+            input = Some(debug::NAMES[players.len()].to_string());
+        } else {
+            input = query_and_validate(message)?;
+        }
+        match input {
+            None => continue,
+            Some(name) => {
+                if name == "DONE" {
+                    break;
+                }
+                if players.contains_key(&name) {
+                    println!("Name '{name}' is already in use");
+                } else {
+                    let key = keys.pop().unwrap().to_string();
+                    println!("Your secret key is {key}, do not forget it! You will need it to log-in later");
+                    if !use_debug {
+                        validate("");
+                    }
+                    players.insert(name, key);
+                }
+            }
+        }
+    }
+    return Ok(players);
+}
+
+fn start_game (mut game: GameStatus) {
+    while !game.ended {
+        match game.current_player_id {
+            Some(_) => display_player_status_and_actions(&mut game),
+            None => display_home_menu(&mut game),
+        }
+    }
+}
+
+fn display_home_menu (mut game: &mut GameStatus) {
+    clear_terminal(Some(game));
+    println!("Bienvenue sur le terminal de control du K-141 \\e[3mKoursk\\e[0m ");
+    let mut actions_list = Vec::new();
+    actions_list.push(Action {
+        description: String::from("Identification"),
+        execute: run_action_log_in,
+    });
+    actions_list.push(Action {
+        description: String::from("Status de l'équipage"),
+        execute: run_action_crew_status,
+    });
+    let action = query_vote_actions(&actions_list);
+    (action.execute)(&mut game);
+}
+
+fn run_action_log_in(game: &mut GameStatus) {
+    clear_terminal(Some(game));
+    let key = query_non_empty("Entrez votre code d'identification:");
+    match game.players.iter().find(|player| player.key == key) {
+        Some(player) => game.current_player_id = Some(player.id),
+        None => validate("Code invalide, appuyez sur ENTREE pour revenir a l'écran d'accueil."),
+    }
+}
+
+fn run_action_crew_status(game: &mut GameStatus) {
+    println!("\nStatus de l'équipage:");
+    for player in &game.players {
+        println!("* Membre d'équipage n°{} - {} {}: {}",
+            player.key,
+            player.role,
+            player.name,
+            if player.alive { "Actif" } else { "Décédé" },
+        )
+    }
+    validate("");
+}
+
+fn display_player_status_and_actions (mut game: &mut GameStatus) {
+    clear_terminal(Some(game));
+    let player = game.get_current_player();
+    let mut actions_list = Vec::new();
+    println!("Bienvenue {}, vous êtes {}", player.name, player.role);
+    if player.messages.len() > 0 {
+        println!("Messages personels:");
+        for message in &player.messages {
+            println!("{}", message.to_string());
+        }
+    }
+    if player.paralyzed {
+        println!("Vous avez été paralysé·e par les mutants!");
+        println!("* vous ne pouvez donc utiliser vos capacités spéciales");
+    } else {
+        match player.role {
+            Role::Patient0 => add_action_patient_0(&mut game, &mut actions_list),
+            Role::Psychologist => add_action_psychologist(&mut game, &mut actions_list),
+            Role::Physician => add_action_physician(&mut game, &mut actions_list),
+            Role::Geneticist => add_action_geneticist(&mut game, &mut actions_list),
+            Role::ITEngineer => add_action_it_engineer(&mut game, &mut actions_list),
+            Role::Spy => add_action_spy(&mut game, &mut actions_list),
+            Role::Hacker => add_action_hacker(&mut game, &mut actions_list),
+            Role::Traitor => add_action_hacker(&mut game, &mut actions_list),
+            Role::Astronaut => add_action_astronaut(&mut game, &mut actions_list),
+        }
+    }
+    add_action_elimination(&mut game, &mut actions_list);
+    if game.get_current_player().infected {
+        add_action_mutant(&mut game, &mut actions_list);
+    }
+    add_exit_action(&mut actions_list);
+    let action = query_vote_actions(&actions_list);
+
+    (action.execute)(&mut game);
+}
+
+fn log_out(game: &mut GameStatus) {
+    game.current_player_id = None;
+}
+
+// Action for elimination
+
+fn add_action_elimination(game: &mut GameStatus, actions_list: &mut Vec<Action>) {
+    actions_list.push(Action {
+        description: match game.get_current_target_p(&ActionType::Eliminate) {
+            Some(target) => format!("Voter pour éliminer un·e de vos ami·e·s [{}]", target.name),
+            None => format!("Voter pour éliminer un·e de vos ami·e·s"),
+        },
+        execute: run_action_elimination,
+    });
+}
+
+fn run_action_elimination(game: &mut GameStatus) {
+    clear_terminal(Some(game));
+    match game.get_current_target_p(&ActionType::Eliminate) {
+        Some(target) => println!("Choisissez un·e camarade à éliminer: [{}]", target.name),
+        None => println!("Choisissez un·e camarade à éliminer:"),
+    }
+    let targets: Vec<&Player> = game.players
+        .iter()
+        .filter(|player| player.alive && player.id != game.current_player_id.unwrap())
+        // .map(|player| Target{ name: &player.name, id: player.id })
+        .collect();
+    let selected = query_targets(&targets).map(|player| player.id);
+    game.set_current_target(&ActionType::Eliminate, selected);
+}
+
+// Actions for mutants
+
+fn add_action_mutant(game: &mut GameStatus, actions_list: &mut Vec<Action>) {
+    actions_list.push(Action {
+        description: match game.get_current_target_p(&ActionType::Infect) {
+            Some(target) => format!("Voter pour infecter un·e de ces sales humain·e·s [{}]", target.name),
+            None => format!("Voter pour infecter un·e de ces sales humain·e·s "),
+        },
+        execute: run_action_infection,
+    });
+    actions_list.push(Action {
+        description: match game.get_current_target_p(&ActionType::Paralyze) {
+            Some(target) => format!("Voter pour paralyser un·e de ces sales humain·e·s [{}]", target.name),
+            None => format!("Voter pour paralyser un·e de ces sales humain·e·s "),
+        },
+        execute: run_action_paralysis,
+    });
+    // add kill
+}
+
+fn run_action_infection(game: &mut GameStatus) {
+    clear_terminal(Some(game));
+    match game.get_current_target_p(&ActionType::Infect) {
+        Some(target) => println!("Choisissez un·e humain·e à infecter: [{}]", target.name),
+        None => println!("Choisissez un·e humain·e à infecter:"),
+    }
+    let targets: Vec<&Player> = game.get_alive_players();
+    let selected = query_targets(&targets).map(|player| player.id);
+    game.set_current_target(&ActionType::Infect, selected);
+}
+
+fn run_action_paralysis(game: &mut GameStatus) {
+    clear_terminal(Some(game));
+    match game.get_current_target_p(&ActionType::Paralyze) {
+        Some(target) => println!("Choisissez un·e humain·e à infecter: [{}]", target.name),
+        None => println!("Choisissez un·e humain·e à infecter:"),
+    }
+    let targets: Vec<&Player> = game.get_alive_players();
+    let selected = query_targets(&targets);
+    game.set_current_target(&ActionType::Paralyze, selected.map(|player| player.id));
+}
+
+// Actions for roles
+
+fn add_action_patient_0(game: &mut GameStatus, actions_list: &mut Vec<Action>) {}
+
+fn add_action_psychologist(game: &mut GameStatus, actions_list: &mut Vec<Action>) {
+    add_generic_action(
+        game,
+        actions_list,
+        ActionType::Psychoanalyze,
+        |game: &mut GameStatus| run_generic_action(game, ActionType::Psychoanalyze),
+    );
+}
+
+fn add_action_physician(game: &mut GameStatus, actions_list: &mut Vec<Action>) {
+    if !game.get_current_player().infected {
+        add_generic_action(
+            game,
+            actions_list,
+            ActionType::Cure,
+            |game: &mut GameStatus| run_generic_action(game, ActionType::Cure),
+        );
+    }
+}
+
+fn add_action_geneticist(game: &mut GameStatus, actions_list: &mut Vec<Action>) {
+    todo!();
+}
+
+fn add_action_it_engineer(game: &mut GameStatus, actions_list: &mut Vec<Action>) {
+    todo!();
+}
+
+fn add_action_spy(game: &mut GameStatus, actions_list: &mut Vec<Action>) {
+    add_generic_action(
+        game,
+        actions_list,
+        ActionType::Spy,
+        |game: &mut GameStatus| run_generic_action(game, ActionType::Spy),
+    );
+}
+
+fn add_action_hacker(game: &mut GameStatus, actions_list: &mut Vec<Action>) {
+    todo!();
+}
+
+fn add_action_traitor(game: &mut GameStatus, actions_list: &mut Vec<Action>) {
+    todo!();
+}
+
+fn add_action_astronaut(game: &mut GameStatus, actions_list: &mut Vec<Action>) {}
+
+// Actions helpers
+
+fn add_generic_action(game: &mut GameStatus, actions_list: &mut Vec<Action>, action: ActionType, run: fn(&mut GameStatus)) {
+    actions_list.push(Action {
+        description: match game.get_current_target_p(&action) {
+            Some(target) => format!("{} [{}]", get_menu_text(action) , target.name),
+            None => format!("{}", get_menu_text(action)),
+        },
+        execute: run,
+    });
+}
+
+fn run_generic_action(game: &mut GameStatus, action: ActionType) {
+    clear_terminal(Some(game));
+    match game.get_current_target_p(&action) {
+        Some(target) => println!("{} [{}]", get_header_text(action), target.name),
+        None => println!("{}", get_header_text(action)),
+    }
+    let targets: Vec<&Player> = game.get_alive_players();
+    let selected = query_targets(&targets);
+    game.set_current_target(&action, selected.map(|player| player.id));
+}
+
+// Selection helpers
+
+fn add_exit_action(actions_list: &mut Vec<Action>) {
+    actions_list.push(Action { description: String::from("Déconnection"), execute: log_out });
+}
+
+fn query_targets<'a>(targets_list: &'a Vec<&'a Player>) -> Option<&'a Player> {
+    for (idx, target) in targets_list.iter().enumerate() {
+        println!("{idx}) {}", target.name);
+    }
+    println!("{}) {}", targets_list.len(), "Aucun");
+    let accepted_answers: Vec<String> = (0..targets_list.len() + 1)
+        .map(|value| { value.to_string() })
+        .collect();
+    let choice: usize = query_specific_answer("Quel est votre choix?", accepted_answers).parse().unwrap();
+    if choice == targets_list.len() {
+        return None;
+    }
+    return Some(targets_list[choice]);
+}
+
+fn query_vote_actions<'a>(actions_list: &'a Vec<Action>) -> &'a Action {
+    for (idx, action) in actions_list.iter().enumerate() {
+        println!("{idx}) {}", action.description);
+    }
+    let accepted_answers: Vec<String> = (0..actions_list.len())
+        .map(|value| { value.to_string() })
+        .collect();
+    let choice: usize = query_specific_answer("Quel est votre choix?", accepted_answers).parse().unwrap();
+    return &actions_list[choice];
+}
+
+fn query_specific_answer(message: &str, accepted_answers: Vec<String>) -> String {
+    println!();
+    loop {
+        let mut input = String::new();
+        print!("{message} ");
+        io::stdout().flush().unwrap();
+        io::stdin().read_line(&mut input).unwrap();
+        input = input.trim().to_string();
+        if accepted_answers.contains(&input) {
+            return input;
+        }
+    }
+}
+
+fn validate(message: &str) {
+    print!("{message} ");
+    io::stdout().flush().unwrap();
+    io::stdin().read_line(&mut String::new()).unwrap();
+}
+
+fn query_non_empty(message: &str) -> String {
+    loop {
+        let mut input = String::new();
+        print!("{message} ");
+        io::stdout().flush().unwrap();
+        io::stdin().read_line(&mut input).unwrap();
+        input = input.trim().to_string();
+        if input.len() > 0 {
+            return input;
+        }
+    }
+}
+
+fn query_and_validate(message: &str) -> Result<Option<String>, io::Error> {
+    let mut input = String::new();
+
+    while input.len() == 0 {
+        print!("{message} ");
+        io::stdout().flush()?;
+        io::stdin().read_line(&mut input)?;
+        input = input.trim().to_string();
+    }
+
+    print!("Your entered '{input}', type 'y' to validate: ");
+    io::stdout().flush()?;
+
+    let mut validation = String::new();
+    io::stdin().read_line(&mut validation)?;
+    validation = validation.trim().to_string();
+
+    if validation == "y" {
+        return Ok(Some(input));
+    }
+    return Ok(None);
+}
+
+fn clear_terminal(game: Option<&GameStatus>) {
+    if game.is_some_and(|game| game.debug) {
+        print!("\n\n\n");
+    } else {
+        print!("{}[2J", 27 as char);
+    }
+}
