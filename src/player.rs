@@ -53,4 +53,8 @@ impl Player {
         None => self.actions.remove(&action),
     };
   }
+
+  pub fn get_death_cause(&self) -> &String {
+    return self.death_cause.as_ref().unwrap();
+  }
 }

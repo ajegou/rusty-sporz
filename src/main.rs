@@ -4,6 +4,8 @@ mod role;
 mod game;
 mod debug;
 mod message;
+mod interface;
+use interface::Color;
 use std::env;
 use game::GameStatus;
 use action::{Action,ActionType, get_header_text, get_menu_text};
@@ -105,7 +107,7 @@ fn start_game (mut game: GameStatus) {
 
 fn display_home_menu (mut game: &mut GameStatus) {
     clear_terminal(Some(game));
-    println!("Bienvenue sur le terminal de control du K-141 \\e[3mKoursk\\e[0m ");
+    println!("Bienvenue sur le terminal de control du K-141 {}", Color::Bright.color("Koursk"));
     let mut actions_list = Vec::new();
     actions_list.push(Action {
         description: String::from("Identification"),
@@ -131,12 +133,28 @@ fn run_action_log_in(game: &mut GameStatus) {
 fn run_action_crew_status(game: &mut GameStatus) {
     println!("\nStatus de l'équipage:");
     for player in &game.players {
-        println!("* Membre d'équipage n°{} - {} {}: {}",
-            player.key,
-            player.role,
-            player.name,
-            if player.alive { "Actif" } else { "Décédé" },
-        )
+        if game.debug {
+            println!("* Membre d'équipage n°{} - {} {}: {}",
+                player.key,
+                player.role,
+                player.name,
+                if player.alive {
+                    String::from(Color::FgGreen.color("Actif"))
+                } else {
+                    format!("{} ({})", Color::Blink.color(Color::FgRed.color("Décédé").as_str()), player.get_death_cause())
+                },
+            )
+        } else {
+            println!("* Membre d'équipage - {}: {}",
+                player.name,
+                if player.alive {
+                    String::from(Color::FgGreen.color("Actif"))
+                } else {
+                    format!("{} ({})", Color::Blink.color(Color::FgRed.color("Décédé").as_str()), player.get_death_cause())
+                },
+            )
+
+        }
     }
     validate("");
 }
