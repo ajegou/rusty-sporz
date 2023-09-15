@@ -35,11 +35,7 @@ impl GameStatus {
     &mut self.players[self.current_player_id.unwrap()]
   }
 
-  pub fn get_current_target<'a>(&'a self, action: &ActionType) -> Option<&PlayerId> {
-    self.get_current_player().get_target(action)
-  }
-
-  pub fn get_current_target_p(&self, action: &ActionType) -> Option<&Player> {
+  pub fn get_current_target(&self, action: &ActionType) -> Option<&Player> {
     self.get_current_player().get_target(action).map(|player_id| &self.players[*player_id])
   }
 
@@ -47,8 +43,8 @@ impl GameStatus {
     self.get_mut_current_player().set_target(action, target);
   }
 
-
   pub fn set_current_target_p(&mut self, action: &ActionType, target: &Option<&Player>) {
+    // This one is problematic, because it needs a mutable game, but the &player is borrowed from the game...
     self.get_mut_current_player().set_target(action, target.map(|player| player.id));
   }
 

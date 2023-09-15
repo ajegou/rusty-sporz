@@ -164,7 +164,7 @@ fn display_player_status_and_actions (mut game: &mut GameStatus) {
             Role::ITEngineer => add_action_it_engineer(&mut game, &mut actions_list),
             Role::Spy => add_action_spy(&mut game, &mut actions_list),
             Role::Hacker => add_action_hacker(&mut game, &mut actions_list),
-            Role::Traitor => add_action_hacker(&mut game, &mut actions_list),
+            Role::Traitor => add_action_traitor(&mut game, &mut actions_list),
             Role::Astronaut => add_action_astronaut(&mut game, &mut actions_list),
         }
     }
@@ -185,70 +185,30 @@ fn log_out(game: &mut GameStatus) {
 // Action for elimination
 
 fn add_action_elimination(game: &mut GameStatus, actions_list: &mut Vec<Action>) {
-    actions_list.push(Action {
-        description: match game.get_current_target_p(&ActionType::Eliminate) {
-            Some(target) => format!("Voter pour éliminer un·e de vos ami·e·s [{}]", target.name),
-            None => format!("Voter pour éliminer un·e de vos ami·e·s"),
-        },
-        execute: run_action_elimination,
-    });
-}
-
-fn run_action_elimination(game: &mut GameStatus) {
-    clear_terminal(Some(game));
-    match game.get_current_target_p(&ActionType::Eliminate) {
-        Some(target) => println!("Choisissez un·e camarade à éliminer: [{}]", target.name),
-        None => println!("Choisissez un·e camarade à éliminer:"),
-    }
-    let targets: Vec<&Player> = game.players
-        .iter()
-        .filter(|player| player.alive && player.id != game.current_player_id.unwrap())
-        // .map(|player| Target{ name: &player.name, id: player.id })
-        .collect();
-    let selected = query_targets(&targets).map(|player| player.id);
-    game.set_current_target(&ActionType::Eliminate, selected);
+    add_generic_action(
+        game,
+        actions_list,
+        ActionType::Eliminate,
+        |game: &mut GameStatus| run_generic_action(game, ActionType::Eliminate),
+    );
 }
 
 // Actions for mutants
 
 fn add_action_mutant(game: &mut GameStatus, actions_list: &mut Vec<Action>) {
-    actions_list.push(Action {
-        description: match game.get_current_target_p(&ActionType::Infect) {
-            Some(target) => format!("Voter pour infecter un·e de ces sales humain·e·s [{}]", target.name),
-            None => format!("Voter pour infecter un·e de ces sales humain·e·s "),
-        },
-        execute: run_action_infection,
-    });
-    actions_list.push(Action {
-        description: match game.get_current_target_p(&ActionType::Paralyze) {
-            Some(target) => format!("Voter pour paralyser un·e de ces sales humain·e·s [{}]", target.name),
-            None => format!("Voter pour paralyser un·e de ces sales humain·e·s "),
-        },
-        execute: run_action_paralysis,
-    });
+    add_generic_action(
+        game,
+        actions_list,
+        ActionType::Infect,
+        |game: &mut GameStatus| run_generic_action(game, ActionType::Infect),
+    );
+    add_generic_action(
+        game,
+        actions_list,
+        ActionType::Paralyze,
+        |game: &mut GameStatus| run_generic_action(game, ActionType::Paralyze),
+    );
     // add kill
-}
-
-fn run_action_infection(game: &mut GameStatus) {
-    clear_terminal(Some(game));
-    match game.get_current_target_p(&ActionType::Infect) {
-        Some(target) => println!("Choisissez un·e humain·e à infecter: [{}]", target.name),
-        None => println!("Choisissez un·e humain·e à infecter:"),
-    }
-    let targets: Vec<&Player> = game.get_alive_players();
-    let selected = query_targets(&targets).map(|player| player.id);
-    game.set_current_target(&ActionType::Infect, selected);
-}
-
-fn run_action_paralysis(game: &mut GameStatus) {
-    clear_terminal(Some(game));
-    match game.get_current_target_p(&ActionType::Paralyze) {
-        Some(target) => println!("Choisissez un·e humain·e à infecter: [{}]", target.name),
-        None => println!("Choisissez un·e humain·e à infecter:"),
-    }
-    let targets: Vec<&Player> = game.get_alive_players();
-    let selected = query_targets(&targets);
-    game.set_current_target(&ActionType::Paralyze, selected.map(|player| player.id));
 }
 
 // Actions for roles
@@ -305,8 +265,9 @@ fn add_action_astronaut(game: &mut GameStatus, actions_list: &mut Vec<Action>) {
 // Actions helpers
 
 fn add_generic_action(game: &mut GameStatus, actions_list: &mut Vec<Action>, action: ActionType, run: fn(&mut GameStatus)) {
+    // It's a bit annoying to have to take "run" here, but closures using the scope seem to be a bit trickier
     actions_list.push(Action {
-        description: match game.get_current_target_p(&action) {
+        description: match game.get_current_target(&action) {
             Some(target) => format!("{} [{}]", get_menu_text(action) , target.name),
             None => format!("{}", get_menu_text(action)),
         },
@@ -316,7 +277,7 @@ fn add_generic_action(game: &mut GameStatus, actions_list: &mut Vec<Action>, act
 
 fn run_generic_action(game: &mut GameStatus, action: ActionType) {
     clear_terminal(Some(game));
-    match game.get_current_target_p(&action) {
+    match game.get_current_target(&action) {
         Some(target) => println!("{} [{}]", get_header_text(action), target.name),
         None => println!("{}", get_header_text(action)),
     }
