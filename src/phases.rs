@@ -81,7 +81,10 @@ pub fn run_physicians_phase(game: &mut GameStatus) {
       active_physician_names.push(physician.name.clone());
     }
   }
+
+  let mut cured_players_names = Vec::new();
   for cured_player in cured_players { // Send messages to the active medical team about who was cured
+    cured_players_names.push(game.players[cured_player].name.clone());
     if game.players[cured_player].role == Role::Patient0 {
       game.players[cured_player].send_message(Message {
         date: current_date,
@@ -104,11 +107,12 @@ pub fn run_physicians_phase(game: &mut GameStatus) {
     }
   }
   let active_physician_names = active_physician_names.join(" ");
+  let cured_players_names = cured_players_names.join(" ");
   for active_physician in active_physicians {
     game.players[active_physician].send_message(Message {
       date: current_date,
       source: String::from("Équipe médicale"),
-      content: String::from(format!("Liste de l'équipe médicale opérationelle la nuit dernière: [{}]", active_physician_names)),
+      content: String::from(format!("L'équipe médicale opérationelle de la nuit précédente ({}) est parvenue à soigner: [{}]", active_physician_names, cured_players_names)),
     });
   }
 }

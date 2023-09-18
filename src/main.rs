@@ -107,7 +107,6 @@ fn get_players_list(use_debug: bool) -> Result<HashMap<String, String>, Error> {
 
 fn start_game (mut game: GameStatus) {
     while !game.ended {
-        run_action_crew_status(&mut game);
         match game.current_player_id {
             Some(_) => display_player_status_and_actions(&mut game),
             None => display_home_menu(&mut game),
@@ -147,6 +146,9 @@ fn run_night(game: &mut GameStatus) {
 
 fn display_home_menu (mut game: &mut GameStatus) {
     clear_terminal(Some(game));
+    if game.debug {
+        run_action_crew_status(&mut game);
+    }
     println!("Bienvenue sur le terminal de control du K-141 {}", Color::Bright.color("Koursk"));
     let mut actions_list = Vec::new();
     actions_list.push(Action {
