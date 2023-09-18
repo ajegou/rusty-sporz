@@ -1,5 +1,6 @@
 const COLORS_ENABLED: bool = true;
 
+#[allow(dead_code)]
 pub enum Color {
   Reset,
   Bright,

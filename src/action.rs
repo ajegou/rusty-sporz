@@ -1,22 +1,9 @@
-use crate::player::{Player, PlayerId};
 use crate::game::GameStatus;
 
 // #[derive(Debug)]
 pub struct Action {
   pub description: String,
   pub execute: fn(&mut GameStatus),
-}
-
-// // #[derive(Debug)]
-// pub struct Action {
-//   pub description: String,
-//   pub execute: fn(&mut Vec<Player>, PlayerId) -> bool,
-// }
-
-// #[derive(Debug)]
-pub struct Target<'a> {
-  pub name: &'a str,
-  pub id: PlayerId,
 }
 
 impl PartialEq for Action {

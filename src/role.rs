@@ -1,5 +1,6 @@
 use std::fmt;
 
+#[allow(dead_code)]
 #[derive(PartialEq, Debug)]
 pub enum Role {
   Patient0,
