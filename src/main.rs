@@ -7,6 +7,7 @@ mod message;
 mod interface;
 use interface::Color;
 use std::env;
+use std::slice::Iter;
 use game::GameStatus;
 use action::{Action,ActionType, get_header_text, get_menu_text};
 use role::Role;
@@ -16,6 +17,7 @@ use std::io;
 use std::io::Write;
 use std::io::Error;
 use rand::thread_rng;
+use rand::prelude;
 use player::Player;
 use player::PlayerId;
 use rand::seq::SliceRandom;
@@ -127,26 +129,11 @@ fn run_night(game: &mut GameStatus) {
     }
 
     // Mutate one player
-    let mutate_votes = game.get_alive_players()
-        .iter()
-        .filter(|player| player.infected)
-        .filter_map(|mutant| mutant.actions.get(&ActionType::Infect))
-        .fold(HashMap::new(), |mut acc, target| {
-            *acc.entry(*target).or_insert(0) += 1;
-            acc
-        });
-    let mut mutate_winner: Option<usize> = None;
-    let mut winner_votes = -1;
-    for (player, votes) in mutate_votes.iter() {
-        if *votes == winner_votes {
-
-        } else if *votes > winner_votes {
-            mutate_winner = Some(*player);
-            winner_votes = *votes;
-        }
-    }
-    if mutate_winner.is_some() {
-        let mutate_winner = mutate_winner.unwrap();
+    let mutate_results = compute_votes_winner(
+        game.get_alive_players().iter().filter(|player| player.infected),
+        ActionType::Infect);
+    if mutate_results.is_some() {
+        let mutate_winner = mutate_results.unwrap().0;
         game.players[mutate_winner].infected = true;
         game.players[mutate_winner].send_message(Message {
             date: current_date,
@@ -155,27 +142,43 @@ fn run_night(game: &mut GameStatus) {
         })
     }
 
+    // Paralyze one player
+    let paralyze_result = compute_votes_winner(
+        game.get_alive_players().iter().filter(|player| player.infected), 
+        ActionType::Paralyze);
+    if paralyze_result.is_some() {
+        let paralyzed_player = &mut game.players[paralyze_result.unwrap().0];
+        paralyzed_player.paralyzed = true;
+        paralyzed_player.messages.push(Message {
+            date: current_date,
+            source: String::from("Outil d'auto diagnostique"),
+            content: String::from("Vous avez été paralysé pendant la nuit, vous n'avez donc pas pu faire d'action spéciale"),
+        })
+    }
+
     // Check votes to eliminate a player
-    let vote_results = game.get_alive_players()
-        .iter()
-        .map(|player| player.get_target(&ActionType::Eliminate))
-        .filter(|vote| vote.is_some())
-        .fold(HashMap::new(), |mut acc: HashMap<usize, usize>, player| {
-            *acc.entry(*player.unwrap()).or_insert(0) += 1;
-            acc
-        });
+    let elimination_results = compute_votes_results(
+        game.get_alive_players().iter(),
+        ActionType::Eliminate);
     let death_threshold = game.get_alive_players().len() / 2;
-    for (target, votes) in vote_results.iter() {
+    for (target, votes) in elimination_results.iter() {
         if *votes > death_threshold {
             let player = &mut game.players[*target];
             player.alive = false;
-            player.death_cause = Some(String::from(""));
-
-            let player = &game.players[*target];
+            player.death_cause = Some(String::from("Aspiré·e accidentellement par le sas tribord"));
+            
+            let who_died = format!("Conformément à la volonté populaire, {} à été retiré du service actif.", player.name);
+            let who_he_was;
+            if player.infected {
+                who_he_was = format!("L'autopsie à révélée que {} était en réalité un·e {} mutant·e!", player.name, player.role);
+            } else {
+                who_he_was = format!("{} était un·e honnête {} dévoué à la mission.", player.name, player.role);
+            }
+            let comment = "Vous pouvez lui dire adieu par le hublot tribord.";
             game.broadcast(Message {
                 date: game.date,
                 source: String::from("Ordinateur Central"),
-                content: format!("Conformément à la volonté populaire, {} à été retiré du service actif. Vous pouvez lui dire au revoir par le hublot tribord.", player.name),
+                content: format!("{} {} {}", who_died, who_he_was, comment),
             })
         } else {
             let player = &mut game.players[*target];
@@ -201,6 +204,42 @@ fn run_night(game: &mut GameStatus) {
 
     // Cure one player
     game.prepare_new_turn();
+}
+
+// Returns the ID of the player who received the most votes for the given action among the voters, along the number of votes
+// If several players received the highest number of votes, one is selected at random
+fn compute_votes_winner <'a, T> (voters: T, action: ActionType) -> Option<(PlayerId, usize)>
+where T: IntoIterator<Item = &'a&'a Player>,
+{
+    let results = compute_votes_results(voters, action);
+    let mut winner: Option<usize> = None;
+    let mut winner_votes = None;
+    for (player, votes) in results.iter() {
+        if winner_votes.is_none() || *votes > winner_votes.unwrap() {
+            winner = Some(*player);
+            winner_votes = Some(*votes);
+        } else if *votes == winner_votes.unwrap() {
+            if rand::random() { // Not great because if more than 2 "winners", the "first" one(s) is less likely to be selected
+                winner = Some(*player);
+                winner_votes = Some(*votes);
+            }
+        }
+    }
+    match winner {
+        Some(player) => Some((player, winner_votes.unwrap())),
+        None => None,
+    }
+}
+
+fn compute_votes_results <'a, T> (voters: T, action: ActionType) -> HashMap<PlayerId, usize>
+where T: IntoIterator<Item = &'a&'a Player>,
+{
+    let results = voters.into_iter().filter_map(|mutant| mutant.actions.get(&action))
+    .fold(HashMap::new(), |mut acc, target| {
+        *acc.entry(*target).or_insert(0) += 1;
+        acc
+    });
+    return results;
 }
 
 fn display_home_menu (mut game: &mut GameStatus) {
@@ -246,7 +285,7 @@ fn run_action_crew_status(game: &mut GameStatus) {
                 if player.alive {
                     String::from(Color::FgGreen.color("Actif"))
                 } else {
-                    format!("{} ({})", Color::Blink.color(Color::FgRed.color("Décédé").as_str()), player.get_death_cause())
+                    format!("{} ({})", Color::Blink.color(Color::FgRed.color("Décédé·e").as_str()), player.get_death_cause())
                 },
             )
         } else {
@@ -255,7 +294,7 @@ fn run_action_crew_status(game: &mut GameStatus) {
                 if player.alive {
                     String::from(Color::FgGreen.color("Actif"))
                 } else {
-                    format!("{} ({})", Color::Blink.color(Color::FgRed.color("Décédé").as_str()), player.get_death_cause())
+                    format!("{} ({})", Color::Blink.color(Color::FgRed.color("Décédé·e").as_str()), player.get_death_cause())
                 },
             )
 
