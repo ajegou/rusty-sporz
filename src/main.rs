@@ -171,6 +171,58 @@ fn run_night(game: &mut GameStatus) {
         })
     }
 
+    // Cure one player
+    let mut alive_players = game.get_mut_alive_players();
+    let physicians = alive_players
+        .iter_mut()
+        .filter(|player| player.role == Role::Physician);
+    let mut cured_players = Vec::new();
+    let mut active_physicians = Vec::new();
+    let mut active_physician_names = Vec::new();
+    for physician in physicians {
+        if physician.infected || physician.paralyzed {
+            physician.send_message(Message {
+                date: current_date,
+                source: String::from("Outil d'auto diagnostique"),
+                content: if physician.infected {
+                    String::from("Vous êtes avez été infecté·e pendant la nuit, vous n'avez donc pu participer aux soins")
+                } else {
+                    String::from("Vous avez été·e paralysé·e pendant la nuit, vous n'avez donc pu participer aux soins")
+                }
+            });
+        } else {
+            if let Some(target) = physician.actions.get(&ActionType::Cure) {
+                cured_players.push(*target);
+            }
+            active_physicians.push(physician.id);
+            active_physician_names.push(physician.name.clone());
+        }
+    }
+    for cured_player in cured_players {
+        if game.players[cured_player].infected {
+            game.players[cured_player].infected = false;
+            game.players[cured_player].send_message(Message {
+                date: current_date,
+                source: String::from("Équipe médicale"),
+                content: String::from("Vous avez subit un traitement par irradiation intense cette nuit, qui vous à débarrassé de toute trace de mutation"),
+            });
+        } else {
+            game.players[cured_player].send_message(Message {
+                date: current_date,
+                source: String::from("Équipe médicale"),
+                content: String::from("Vous avez subit un traitement anti-mutation cette nuit, bien qu'il n'y ait eu aucune trace de mutations dans votre corps"),
+            });
+        }
+    }
+    let active_physician_names = active_physician_names.join(" ");
+    for active_physician in active_physicians {
+        game.players[active_physician].send_message(Message {
+            date: current_date,
+            source: String::from("Équipe médicale"),
+            content: String::from(format!("Liste de l'équipe médicale opérationelle la nuit dernière: [{}]", active_physician_names)),
+        });
+    }
+
     // Check votes to eliminate a player
     let elimination_results = compute_votes_results(
         game.get_alive_players().iter(),
@@ -337,21 +389,16 @@ fn display_player_status_and_actions (mut game: &mut GameStatus) {
 
     add_action_elimination(&mut game, &mut actions_list);
 
-    if game.get_current_player().paralyzed {
-        println!("Vous avez été paralysé·e par les mutants!");
-        println!("* vous ne pouvez donc utiliser vos capacités spéciales");
-    } else {
-        match game.get_current_player().role {
-            Role::Patient0 => add_action_patient_0(&mut game, &mut actions_list),
-            Role::Psychologist => add_action_psychologist(&mut game, &mut actions_list),
-            Role::Physician => add_action_physician(&mut game, &mut actions_list),
-            Role::Geneticist => add_action_geneticist(&mut game, &mut actions_list),
-            Role::ITEngineer => add_action_it_engineer(&mut game, &mut actions_list),
-            Role::Spy => add_action_spy(&mut game, &mut actions_list),
-            Role::Hacker => add_action_hacker(&mut game, &mut actions_list),
-            Role::Traitor => add_action_traitor(&mut game, &mut actions_list),
-            Role::Astronaut => add_action_astronaut(&mut game, &mut actions_list),
-        }
+    match game.get_current_player().role {
+        Role::Patient0 => add_action_patient_0(&mut game, &mut actions_list),
+        Role::Psychologist => add_action_psychologist(&mut game, &mut actions_list),
+        Role::Physician => add_action_physician(&mut game, &mut actions_list),
+        Role::Geneticist => add_action_geneticist(&mut game, &mut actions_list),
+        Role::ITEngineer => add_action_it_engineer(&mut game, &mut actions_list),
+        Role::Spy => add_action_spy(&mut game, &mut actions_list),
+        Role::Hacker => add_action_hacker(&mut game, &mut actions_list),
+        Role::Traitor => add_action_traitor(&mut game, &mut actions_list),
+        Role::Astronaut => add_action_astronaut(&mut game, &mut actions_list),
     }
 
     if game.get_current_player().infected {
@@ -411,7 +458,7 @@ fn add_action_psychologist(game: &mut GameStatus, actions_list: &mut Vec<Action>
 }
 
 fn add_action_physician(game: &mut GameStatus, actions_list: &mut Vec<Action>) {
-    if !game.get_current_player().infected {
+    if !game.get_current_player().infected { // An infected physician cannot cure
         add_generic_action(
             game,
             actions_list,
