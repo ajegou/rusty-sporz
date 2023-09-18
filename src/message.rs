@@ -1,9 +1,9 @@
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Message {
-  date: u32,
-  source: String,
-  content: String,
+  pub date: u32,
+  pub source: String,
+  pub content: String,
 }
 
 impl Message {

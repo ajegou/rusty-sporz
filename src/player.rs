@@ -20,6 +20,7 @@ pub struct Player {
   pub infected: bool,
   pub paralyzed: bool,
   pub death_cause: Option<String>,
+  pub has_connected_today: bool,
 }
 
 impl Player {
@@ -36,11 +37,13 @@ impl Player {
       death_cause: None,
       messages: Vec::new(),
       actions: HashMap::new(),
+      has_connected_today: false,
     }
   }
 
   pub fn prepare_new_turn(&mut self) {
     self.actions = HashMap::new();
+    self.has_connected_today = false;
   }
 
   pub fn get_target(&self, action: &ActionType) -> Option<&PlayerId> {
@@ -56,5 +59,9 @@ impl Player {
 
   pub fn get_death_cause(&self) -> &String {
     return self.death_cause.as_ref().unwrap();
+  }
+
+  pub fn send_message(&mut self, message: Message) {
+    self.messages.push(message);
   }
 }

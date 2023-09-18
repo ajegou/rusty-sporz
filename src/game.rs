@@ -1,7 +1,9 @@
+use crate::message::Message;
 use crate::player::{Player, PlayerId};
 use crate::action::ActionType;
 
 pub struct GameStatus {
+  pub date: u32,
   pub players: Vec<Player>,
   pub current_player_id: Option<PlayerId>,
   pub ended: bool,
@@ -17,12 +19,20 @@ impl GameStatus {
       day: true,
       ended: false,
       debug: false,
+      date: 1,
     }
   }
 
   pub fn get_alive_players(&self) -> Vec<&Player> {
     return self.players
       .iter()
+      .filter(|player| player.alive)
+      .collect();
+  }
+
+  pub fn get_mut_alive_players(&mut self) -> Vec<&mut Player> {
+    return self.players
+      .iter_mut()
       .filter(|player| player.alive)
       .collect();
   }
@@ -50,5 +60,12 @@ impl GameStatus {
 
   pub fn prepare_new_turn(&mut self) {
     self.players.iter_mut().for_each(|player| player.prepare_new_turn());
+    self.date += 1;
+  }
+
+  pub fn broadcast (&mut self, message: Message) {
+    for player in &mut self.players {
+      player.messages.push(message.clone()); // Maybe use borrowing instead of clone, but needs lifetime
+    }
   }
 }
