@@ -3,7 +3,7 @@ use crate::player::{Player, PlayerId};
 use crate::action::ActionType;
 
 pub struct GameStatus {
-  pub date: u32,
+  date: u32,
   pub players: Vec<Player>,
   pub current_player_id: Option<PlayerId>,
   pub ended: bool,
@@ -21,6 +21,10 @@ impl GameStatus {
       debug: false,
       date: 1,
     }
+  }
+
+  pub fn get_date(&self) -> u32 {
+    return self.date;
   }
 
   pub fn get_alive_players(&self) -> Vec<&Player> {
