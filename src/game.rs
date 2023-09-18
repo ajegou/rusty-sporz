@@ -68,4 +68,13 @@ impl GameStatus {
       player.messages.push(message.clone()); // Maybe use borrowing instead of clone, but needs lifetime
     }
   }
+
+  pub fn limited_broadcast<P>(&mut self, message: Message, predicate: P)
+  where
+    P: FnMut(&&mut &mut Player) -> bool,
+  {
+    for player in self.get_mut_alive_players().iter_mut().filter(predicate) {
+      player.send_message(message.clone());
+    }
+  }
 }

@@ -7,6 +7,7 @@ mod message;
 mod interface;
 use interface::Color;
 use std::env;
+use std::fmt::format;
 use std::slice::Iter;
 use game::GameStatus;
 use action::{Action,ActionType, get_header_text, get_menu_text};
@@ -128,17 +129,34 @@ fn run_night(game: &mut GameStatus) {
         }
     }
 
+    // Notify the mutants of who the other mutants are
+    // The newly converted mutant will only get that information at the next night
+    let mutants_names = game.get_alive_players().iter()
+        .filter_map(|player| if player.infected { Some(player.name.clone())} else { None })
+        .collect::<Vec<String>>().join(" ");
+    game.limited_broadcast(Message {
+        date: current_date,
+        source: String::from("Overmind"),
+        content: String::from(format!("Lors du dernier crépuscule, les mutant·e·s étaient: [{mutants_names}]")),
+    }, |player: &&mut &mut Player| player.infected);
+
     // Mutate one player
     let mutate_results = compute_votes_winner(
         game.get_alive_players().iter().filter(|player| player.infected),
         ActionType::Infect);
     if mutate_results.is_some() {
-        let mutate_winner = mutate_results.unwrap().0;
-        game.players[mutate_winner].infected = true;
-        game.players[mutate_winner].send_message(Message {
+        let mutatee_name = &game.players[mutate_results.unwrap().0].name;
+        game.limited_broadcast(Message { // Notify mutants of who was infected
             date: current_date,
             source: String::from("Overmind"),
-            content: String::from("Bienvenue {}, nous sommes heureuxe de vous compter parmis nous."),
+            content: String::from(format!("Félicitations, cette nuit vous êtes parvenus à infecter: {mutatee_name}")),
+        }, |player: &&mut &mut Player| player.infected);
+        let mutate_winner = &mut game.players[mutate_results.unwrap().0];
+        mutate_winner.infected = true;
+        mutate_winner.send_message(Message { // Notify the new mutant that he was infected
+            date: current_date,
+            source: String::from("Overmind"),
+            content: String::from(format!("Bienvenue {}, nous sommes heureuxe de vous compter parmis nous.", mutate_winner.name)),
         })
     }
 
