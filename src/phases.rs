@@ -1,4 +1,10 @@
-use crate::{game::GameStatus, role::Role, message::Message, action::ActionType, helper::{compute_votes_results, compute_votes_winner}, player::Player};
+use crate::{
+  game::GameStatus,
+  role::Role,
+  message::Message,
+  action::ActionType,
+  helper::{compute_votes_results, compute_votes_winner},
+  player::Player};
 
 
 pub fn run_mutants_phase(game: &mut GameStatus) {
