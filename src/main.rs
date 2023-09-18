@@ -132,11 +132,8 @@ fn run_night(game: &mut GameStatus) {
     }
 
     run_mutants_phase(game);
-
     run_physicians_phase(game);
-
     run_elimination_phase(game);
-
     run_it_phase(game);
 
     game.prepare_new_turn();
@@ -207,7 +204,8 @@ fn display_player_status_and_actions (mut game: &mut GameStatus) {
     clear_terminal(Some(game));
     let player = game.get_current_player();
     let mut actions_list = Vec::new();
-    println!("Bienvenue {}, vous êtes {}", player.name, player.role);
+    let status = if player.infected { Color::FgRed.color("mutant") } else { Color::FgGreen.color("saint")};
+    println!("Bienvenue {}, vous êtes un {} {}", player.name, player.role, status);
     if player.infected {
         println!("En tant que mutant, vous devez prendre le contrôle du vaisseau en infectant ou éliminant tous les membres d'équipage encore saints!");
     } else {

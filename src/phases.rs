@@ -82,7 +82,13 @@ pub fn run_physicians_phase(game: &mut GameStatus) {
     }
   }
   for cured_player in cured_players {
-    if game.players[cured_player].infected {
+    if game.players[cured_player].role == Role::Patient0 {
+      game.players[cured_player].send_message(Message {
+        date: current_date,
+        source: String::from("Équipe médicale"),
+        content: String::from("Vous avez subit un traitement par irradiation intense cette nuit, mais la mutation est trop avancée chez vous, cela a échoué"),
+      });
+    } else if game.players[cured_player].infected {
       game.players[cured_player].infected = false;
       game.players[cured_player].send_message(Message {
         date: current_date,
