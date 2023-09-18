@@ -81,7 +81,7 @@ pub fn run_physicians_phase(game: &mut GameStatus) {
       active_physician_names.push(physician.name.clone());
     }
   }
-  for cured_player in cured_players {
+  for cured_player in cured_players { // Send messages to the active medical team about who was cured
     if game.players[cured_player].role == Role::Patient0 {
       game.players[cured_player].send_message(Message {
         date: current_date,
@@ -130,7 +130,8 @@ pub fn run_elimination_phase(game: &mut GameStatus) {
       let who_died = format!("Conformément à la volonté populaire, {} à été retiré du service actif.", player.name);
       let who_he_was;
       if player.infected {
-        who_he_was = format!("L'autopsie à révélée que {} était en réalité un·e {} mutant·e!", player.name, player.role);
+        let role = if player.role == Role::Patient0 { &Role::Astronaut } else { &player.role }; // Patient0's is not revealed on death
+        who_he_was = format!("L'autopsie à révélée que {} était en réalité un·e {} mutant·e!", player.name, role);
       } else {
         who_he_was = format!("{} était un·e honnête {} dévoué à la mission.", player.name, player.role);
       }
@@ -163,6 +164,31 @@ pub fn run_it_phase(game: &mut GameStatus) {
         source: String::from("Système de diagnostique"),
         content: format!("L'analyse quantique de cette nuit a révélé la présence de {infected_players} membres d'équipage infectés à bord."),
       })
-    }
+    } // See if we want to display something in else
+  }
+}
+
+pub fn run_psychologist_phase(game: &mut GameStatus) {
+  let current_date = game.get_date(); // do better
+  let psychologists_ids = game.get_player_ids(|player| player.role == Role::Psychologist);
+  for psychologists_id in psychologists_ids {
+    if !game.players[psychologists_id].paralyzed {
+      if let Some(target) = game.players[psychologists_id].get_target(&ActionType::Psychoanalyze) {
+        let name = game.players[*target].name.clone();
+        if game.players[*target].infected {
+          game.players[psychologists_id].send_message(Message {
+            date: current_date,
+            source: String::from("Freud GPT"),
+            content: format!("D'après l'analyse, il semblerait que le comportement déviant de {} ne découle pas d'un trauma d'enfance, mais d'un changement récent. C'est un·e mutant·e!", name),
+          })
+        } else {
+          game.players[psychologists_id].send_message(Message {
+            date: current_date,
+            source: String::from("Freud GPT"),
+            content: format!("D'après l'analyse, il semblerait que le comportement déviant de {} découle simplement d'un rapport difficile à la mère, et pas d'une mutation génétique", name),
+          })
+        }
+      }
+    } // See if we want to display something in else
   }
 }

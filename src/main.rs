@@ -12,6 +12,7 @@ use phases::run_elimination_phase;
 use phases::run_it_phase;
 use phases::run_mutants_phase;
 use phases::run_physicians_phase;
+use phases::run_psychologist_phase;
 use std::env;
 use game::GameStatus;
 use action::{Action,ActionType, get_header_text, get_menu_text};
@@ -25,8 +26,7 @@ use rand::thread_rng;
 use player::Player;
 use player::PlayerId;
 use rand::seq::SliceRandom;
-
-use crate::message::Message;
+use rand::Rng;
 
 fn main() -> Result<(), Box<dyn error::Error>> {
     let args: Vec<String> = env::args().collect();
@@ -69,9 +69,9 @@ fn get_players_list(use_debug: bool) -> Result<HashMap<String, String>, Error> {
         keys.shuffle(&mut thread_rng());
     }
 
+    clear_terminal(None);
     let mut players: HashMap<String, String> = HashMap::new();
     loop {
-        clear_terminal(None);
         let message = "Enter your name (or enter DONE if no more players):";
         let input;
         if use_debug {
@@ -83,7 +83,7 @@ fn get_players_list(use_debug: bool) -> Result<HashMap<String, String>, Error> {
             input = query_and_validate(message)?;
         }
         match input {
-            None => continue,
+            None => println!("Annulation"),
             Some(name) => {
                 if name == "DONE" {
                     break;
@@ -97,6 +97,7 @@ fn get_players_list(use_debug: bool) -> Result<HashMap<String, String>, Error> {
                         validate("");
                     }
                     players.insert(name, key);
+                    clear_terminal(None);
                 }
             }
         }
@@ -105,15 +106,14 @@ fn get_players_list(use_debug: bool) -> Result<HashMap<String, String>, Error> {
 }
 
 fn start_game (mut game: GameStatus) {
-    if game.debug {
-        run_action_crew_status(&mut game);
-    }
     while !game.ended {
+        run_action_crew_status(&mut game);
         match game.current_player_id {
             Some(_) => display_player_status_and_actions(&mut game),
             None => display_home_menu(&mut game),
         }
     }
+    end_game(&game);
 }
 
 fn run_night(game: &mut GameStatus) {
@@ -135,6 +135,12 @@ fn run_night(game: &mut GameStatus) {
     run_physicians_phase(game);
     run_elimination_phase(game);
     run_it_phase(game);
+    run_psychologist_phase(game);
+
+    let healthy_players = game.get_alive_players().iter().filter(|player| !player.infected).count();
+    if healthy_players == 0 || healthy_players == game.get_alive_players().len() {
+        game.ended = true;
+    }
 
     game.prepare_new_turn();
 }
@@ -172,6 +178,7 @@ fn run_action_log_in(game: &mut GameStatus) {
 }
 
 fn run_action_crew_status(game: &mut GameStatus) {
+    let mut rng = rand::thread_rng(); // Used to generate random ids for display
     println!("\nStatus de l'équipage:");
     for player in &game.players {
         if game.debug {
@@ -186,7 +193,8 @@ fn run_action_crew_status(game: &mut GameStatus) {
                 },
             )
         } else {
-            println!("* Membre d'équipage - {}: {}",
+            println!("* Membre d'équipage n°{} - {}: {}",
+                rng.gen_range(0..100),
                 player.name,
                 if player.alive {
                     String::from(Color::FgGreen.color("Actif"))
@@ -204,7 +212,11 @@ fn display_player_status_and_actions (mut game: &mut GameStatus) {
     clear_terminal(Some(game));
     let player = game.get_current_player();
     let mut actions_list = Vec::new();
-    let status = if player.infected { Color::FgRed.color("mutant") } else { Color::FgGreen.color("saint")};
+    let status = if player.alive {
+        if player.infected { Color::FgRed.color("mutant") } else { Color::FgGreen.color("saint")}
+    } else {
+        Color::Blink.color(Color::FgRed.color("Mort").as_str())
+    };
     println!("Bienvenue {}, vous êtes un {} {}", player.name, player.role, status);
     if player.infected {
         println!("En tant que mutant, vous devez prendre le contrôle du vaisseau en infectant ou éliminant tous les membres d'équipage encore saints!");
@@ -218,22 +230,24 @@ fn display_player_status_and_actions (mut game: &mut GameStatus) {
         }
     }
 
-    add_action_elimination(&mut game, &mut actions_list);
+    if player.alive {
+        add_action_elimination(&mut game, &mut actions_list);
 
-    match game.get_current_player().role {
-        Role::Patient0 => add_action_patient_0(&mut game, &mut actions_list),
-        Role::Psychologist => add_action_psychologist(&mut game, &mut actions_list),
-        Role::Physician => add_action_physician(&mut game, &mut actions_list),
-        Role::Geneticist => add_action_geneticist(&mut game, &mut actions_list),
-        Role::ITEngineer => add_action_it_engineer(&mut game, &mut actions_list),
-        Role::Spy => add_action_spy(&mut game, &mut actions_list),
-        Role::Hacker => add_action_hacker(&mut game, &mut actions_list),
-        Role::Traitor => add_action_traitor(&mut game, &mut actions_list),
-        Role::Astronaut => add_action_astronaut(&mut game, &mut actions_list),
-    }
+        match game.get_current_player().role {
+            Role::Patient0 => add_action_patient_0(&mut game, &mut actions_list),
+            Role::Psychologist => add_action_psychologist(&mut game, &mut actions_list),
+            Role::Physician => add_action_physician(&mut game, &mut actions_list),
+            Role::Geneticist => add_action_geneticist(&mut game, &mut actions_list),
+            Role::ITEngineer => add_action_it_engineer(&mut game, &mut actions_list),
+            Role::Spy => add_action_spy(&mut game, &mut actions_list),
+            Role::Hacker => add_action_hacker(&mut game, &mut actions_list),
+            Role::Traitor => add_action_traitor(&mut game, &mut actions_list),
+            Role::Astronaut => add_action_astronaut(&mut game, &mut actions_list),
+        }
 
-    if game.get_current_player().infected {
-        add_action_mutant(&mut game, &mut actions_list);
+        if game.get_current_player().infected {
+            add_action_mutant(&mut game, &mut actions_list);
+        }
     }
 
     add_exit_action(&mut actions_list);
@@ -246,6 +260,24 @@ fn log_out(game: &mut GameStatus) {
     game.current_player_id = None;
 }
 
+fn end_game(game: &GameStatus) {
+    clear_terminal(Some(game));
+
+    let healthy_players = game.get_alive_players().iter().filter(|player| !player.infected).count();
+    if healthy_players == 0 {
+        println!("===== Victoire des mutants =====");
+        println!("Le Koursk est maintenant aux mains des mutants et, avec la coopération des centaines de passagers en sommeil, essaimera la mutation dans la galaxie.");
+        println!("Féliciations aux mutants");
+        println!("Vous êtes l'avenir de l'humanité");
+        println!("Mais il reste beaucoup à faire...");
+    } else {
+        println!("===== Victoire de l'humanité =====");
+        println!("L'équipage du Koursk est parvenu, au prix de grands sacrifices, à contenir et éliminer la mutation.");
+        println!("Féliciations aux survivants");
+        println!("Grâce à vous l'humanité est sauve");
+        println!("Pour le moment...");
+    }
+}
 // Action for elimination
 
 fn add_action_elimination(game: &mut GameStatus, actions_list: &mut Vec<Action>) {

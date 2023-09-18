@@ -81,4 +81,11 @@ impl GameStatus {
       player.send_message(message.clone());
     }
   }
+
+  pub fn get_player_ids<P>(&self, predicate: P) -> Vec<PlayerId>
+  where
+    P: FnMut(&&&Player) -> bool,
+  {
+    return self.get_alive_players().iter().filter(predicate).map(|player| player.id).collect();
+  }
 }
