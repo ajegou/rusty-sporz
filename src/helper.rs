@@ -9,7 +9,7 @@ pub fn compute_votes_winner <'a, T> (voters: T, action: ActionType) -> Option<(P
 where T: IntoIterator<Item = &'a&'a Player>,
 {
     let results = compute_votes_results(voters, action);
-    let mut winner: Option<usize> = None;
+    let mut winner: Option<PlayerId> = None;
     let mut winner_votes = None;
     for (player, votes) in results.iter() {
         if winner_votes.is_none() || *votes > winner_votes.unwrap() {

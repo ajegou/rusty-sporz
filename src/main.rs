@@ -31,7 +31,7 @@ fn main() -> Result<(), Box<dyn error::Error>> {
     let number_of_players = u32::try_from(players_names.len()).unwrap();
     let mut roles = role::get_roles(number_of_players)?;
     roles.shuffle(&mut thread_rng());
-    let (players, keys_to_ids) = create_players(players_names, roles);
+    let players = create_players(players_names, roles);
 
     let mut game = GameStatus::new(players);
     game.debug = debug;
@@ -41,19 +41,16 @@ fn main() -> Result<(), Box<dyn error::Error>> {
 }
 
 // Consumes both names_to_keys and roles
-fn create_players<'a>(names_to_keys: HashMap<String, String>, mut roles: Vec<Role>)
-    -> (Vec<Player>, HashMap<String, PlayerId>) {
+fn create_players<'a>(names_to_keys: HashMap<String, String>, mut roles: Vec<Role>) -> Vec<Player> {
     let mut next_user_id = 0;
     let mut players: Vec<Player> = Vec::new();
-    let mut keys_to_ids: HashMap<String, PlayerId> = HashMap::new();
     for (name, key) in names_to_keys {
-        keys_to_ids.insert(key.clone(), next_user_id);
         let role = roles.pop().unwrap();
         let player = Player::new(next_user_id, key, name, role);
         players.push(player);
         next_user_id += 1;
     }
-    return (players, keys_to_ids);
+    return players;
 }
 
 fn get_players_list(use_debug: bool) -> Result<HashMap<String, String>, Error> {
@@ -165,9 +162,10 @@ fn display_home_menu (mut game: &mut GameStatus) {
 fn run_action_log_in(game: &mut GameStatus) {
     clear_terminal(Some(game));
     let key = query_non_empty("Entrez votre code d'identification:");
-    match game.players.iter().find(|player| player.key == key) {
-        Some(player) => {
-            game.current_player_id = Some(player.id);
+    let player_id = game.get_player_id_from_key(key);
+    match player_id {
+        Some(player_id) => {
+            game.current_player_id = Some(player_id);
             game.get_mut_current_player().has_connected_today = true;
         }
         None => validate("Code invalide, appuyez sur ENTREE pour revenir a l'écran d'accueil."),
@@ -177,7 +175,7 @@ fn run_action_log_in(game: &mut GameStatus) {
 fn run_action_crew_status(game: &mut GameStatus) {
     let mut rng = rand::thread_rng(); // Used to generate random ids for display
     println!("\nStatus de l'équipage:");
-    for player in &game.players {
+    for player in game.get_all_players() {
         if game.debug {
             println!("* Membre d'équipage n°{} - {} {}: {}",
                 player.key,

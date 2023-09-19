@@ -1,10 +1,12 @@
+use std::slice::Iter;
+
 use crate::message::Message;
 use crate::player::{Player, PlayerId};
 use crate::action::ActionType;
 
 pub struct GameStatus {
   date: u32,
-  pub players: Vec<Player>,
+  players: Vec<Player>,
   pub current_player_id: Option<PlayerId>,
   pub ended: bool,
   pub day: bool,
@@ -27,6 +29,25 @@ impl GameStatus {
     return self.date;
   }
 
+  pub fn get_player_id_from_key(&self, key: String) -> Option<PlayerId> {
+    match self.players.iter().find(|player| player.key == key) {
+      Some(player) => Some(player.id.clone()),
+      None => None,
+    }
+  }
+
+  pub fn get_player(&self, id: PlayerId) -> &Player {
+    return id.get_player(&self.players);
+  }
+
+  pub fn get_mut_player(&mut self, id: PlayerId) -> &mut Player {
+    return id.get_mut_player(&mut self.players);
+  }
+
+  pub fn get_all_players(&self) -> Iter<'_, Player>{
+    return self.players.iter();
+  }
+
   pub fn get_alive_players(&self) -> Vec<&Player> {
     return self.players
       .iter()
@@ -42,15 +63,15 @@ impl GameStatus {
   }
 
   pub fn get_current_player<'a>(&'a self) -> &'a Player { // panics if there is no current player
-    &self.players[self.current_player_id.unwrap()]
+    &self.current_player_id.unwrap().get_player(&self.players)
   }
 
   pub fn get_mut_current_player<'a>(&'a mut self) -> &'a mut Player { // panics if there is no current player
-    &mut self.players[self.current_player_id.unwrap()]
+    self.current_player_id.unwrap().get_mut_player(&mut self.players)
   }
 
   pub fn get_current_target(&self, action: &ActionType) -> Option<&Player> {
-    self.get_current_player().get_target(action).map(|player_id| &self.players[*player_id])
+    self.get_current_player().get_target(action).map(|player_id| player_id.get_player(&self.players))
   }
 
   pub fn set_current_target(&mut self, action: &ActionType, target: Option<PlayerId>) {

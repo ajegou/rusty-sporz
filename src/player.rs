@@ -4,7 +4,25 @@ use crate::role::Role;
 use crate::message::Message;
 use crate::action::ActionType;
 
-pub type PlayerId = usize;
+#[derive(Debug, Eq, Hash, Clone, Copy)]
+pub struct PlayerId {
+  id: usize,
+}
+
+impl PartialEq for PlayerId {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl PlayerId {
+  pub fn get_player<'a>(&self, players: &'a Vec<Player>) -> &'a Player {
+    return &players[self.id];
+  }
+  pub fn get_mut_player<'a>(&self, players: &'a mut Vec<Player>) -> &'a mut Player {
+    return &mut players[self.id];
+  }
+}
 
 #[derive(Debug)]
 pub struct Player {
@@ -24,10 +42,10 @@ pub struct Player {
 }
 
 impl Player {
-  pub fn new(id: PlayerId, key: String, name: String, role: Role) -> Player {
+  pub fn new(id: usize, key: String, name: String, role: Role) -> Player {
     let infected = role == Role::Patient0;
     Player {
-      id,
+      id: PlayerId { id: id },
       key,
       name,
       role,

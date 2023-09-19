@@ -26,13 +26,13 @@ pub fn run_mutants_phase(game: &mut GameStatus) {
         game.get_alive_players().iter().filter(|player| player.infected),
         ActionType::Infect);
     if mutate_results.is_some() {
-        let mutatee_name = &game.players[mutate_results.unwrap().0].name;
+        let mutatee_name = &game.get_player(mutate_results.unwrap().0).name;
         game.limited_broadcast(Message { // Notify mutants of who was infected
             date: current_date,
             source: String::from("Overmind"),
             content: String::from(format!("Félicitations, cette nuit vous êtes parvenus à infecter: {mutatee_name}")),
         }, |player: &&mut &mut Player| player.infected);
-        let mutate_winner = &mut game.players[mutate_results.unwrap().0];
+        let mutate_winner = game.get_mut_player(mutate_results.unwrap().0);
         mutate_winner.infected = true;
         mutate_winner.send_message(Message { // Notify the new mutant that he was infected
             date: current_date,
@@ -46,7 +46,7 @@ pub fn run_mutants_phase(game: &mut GameStatus) {
         game.get_alive_players().iter().filter(|player| player.infected), 
         ActionType::Paralyze);
     if paralyze_result.is_some() {
-        let paralyzed_player = &mut game.players[paralyze_result.unwrap().0];
+        let paralyzed_player = game.get_mut_player(paralyze_result.unwrap().0);
         paralyzed_player.paralyzed = true;
         paralyzed_player.messages.push(Message {
             date: current_date,
@@ -90,22 +90,22 @@ pub fn run_physicians_phase(game: &mut GameStatus) {
 
   let mut cured_players_names = Vec::new();
   for cured_player in cured_players { // Send messages to the active medical team about who was cured
-    cured_players_names.push(game.players[cured_player].name.clone());
-    if game.players[cured_player].role == Role::Patient0 {
-      game.players[cured_player].send_message(Message {
+    cured_players_names.push(game.get_player(cured_player).name.clone());
+    if game.get_player(cured_player).role == Role::Patient0 {
+      game.get_mut_player(cured_player).send_message(Message {
         date: current_date,
         source: String::from("Équipe médicale"),
         content: String::from("Vous avez subit un traitement par irradiation intense cette nuit, mais la mutation est trop avancée chez vous, cela a échoué"),
       });
-    } else if game.players[cured_player].infected {
-      game.players[cured_player].infected = false;
-      game.players[cured_player].send_message(Message {
+    } else if game.get_player(cured_player).infected {
+      game.get_mut_player(cured_player).infected = false;
+      game.get_mut_player(cured_player).send_message(Message {
         date: current_date,
         source: String::from("Équipe médicale"),
         content: String::from("Vous avez subit un traitement par irradiation intense cette nuit, qui vous à débarrassé de toute trace de mutation"),
       });
     } else {
-      game.players[cured_player].send_message(Message {
+      game.get_mut_player(cured_player).send_message(Message {
         date: current_date,
         source: String::from("Équipe médicale"),
         content: String::from("Vous avez subit un traitement anti-mutation cette nuit, bien qu'il n'y ait eu aucune trace de mutations dans votre corps"),
@@ -115,7 +115,7 @@ pub fn run_physicians_phase(game: &mut GameStatus) {
   let active_physician_names = active_physician_names.join(" ");
   let cured_players_names = cured_players_names.join(" ");
   for active_physician in active_physicians {
-    game.players[active_physician].send_message(Message {
+    game.get_mut_player(active_physician).send_message(Message {
       date: current_date,
       source: String::from("Équipe médicale"),
       content: String::from(format!("L'équipe médicale opérationelle de la nuit précédente ({}) est parvenue à soigner: [{}]", active_physician_names, cured_players_names)),
@@ -133,7 +133,7 @@ pub fn run_elimination_phase(game: &mut GameStatus) {
   let death_threshold = game.get_alive_players().len() / 2;
   for (target, votes) in elimination_results.iter() {
     if *votes > death_threshold {
-      let player = &mut game.players[*target];
+      let player = game.get_mut_player(*target);
       player.alive = false;
       player.death_cause = Some(String::from("Aspiré·e accidentellement par le sas tribord"));
       
@@ -152,7 +152,7 @@ pub fn run_elimination_phase(game: &mut GameStatus) {
         content: format!("{} {} {}", who_died, who_he_was, comment),
       })
     } else {
-      let player = &mut game.players[*target];
+      let player = game.get_mut_player(*target);
       player.send_message(Message {
         date: current_date,
         source: String::from("Ordinateur Central"),
@@ -182,17 +182,17 @@ pub fn run_psychologist_phase(game: &mut GameStatus) {
   let current_date = game.get_date(); // do better
   let psychologists_ids = game.get_player_ids(|player| player.role == Role::Psychologist);
   for psychologists_id in psychologists_ids {
-    if !game.players[psychologists_id].paralyzed {
-      if let Some(target) = game.players[psychologists_id].get_target(&ActionType::Psychoanalyze) {
-        let name = game.players[*target].name.clone();
-        if game.players[*target].infected {
-          game.players[psychologists_id].send_message(Message {
+    if !game.get_player(psychologists_id).paralyzed {
+      if let Some(target) = game.get_player(psychologists_id).get_target(&ActionType::Psychoanalyze) {
+        let name = game.get_player(*target).name.clone();
+        if game.get_player(*target).infected {
+          game.get_mut_player(psychologists_id).send_message(Message {
             date: current_date,
             source: String::from("Freud GPT"),
             content: format!("D'après l'analyse, il semblerait que le comportement déviant de {} ne découle pas d'un trauma d'enfance, mais d'un changement récent. C'est un·e mutant·e!", name),
           })
         } else {
-          game.players[psychologists_id].send_message(Message {
+          game.get_mut_player(psychologists_id).send_message(Message {
             date: current_date,
             source: String::from("Freud GPT"),
             content: format!("D'après l'analyse, il semblerait que le comportement déviant de {} découle simplement d'un rapport difficile à la mère, et pas d'une mutation génétique", name),
