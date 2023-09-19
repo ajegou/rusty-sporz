@@ -23,9 +23,12 @@ use player::{Player, PlayerId};
 use rand::seq::SliceRandom;
 use rand::Rng;
 
+static mut DEBUG: bool = false;
+
 fn main() -> Result<(), Box<dyn error::Error>> {
     let args: Vec<String> = env::args().collect();
     let debug = args.contains(&String::from("--debug"));
+    unsafe { DEBUG = debug }; // Shitty, mostly for interface, will do better
 
     let players_names = get_players_list(debug)?;
     let number_of_players = u32::try_from(players_names.len()).unwrap();
@@ -61,7 +64,7 @@ fn get_players_list(use_debug: bool) -> Result<HashMap<String, String>, Error> {
         keys.shuffle(&mut thread_rng());
     }
 
-    clear_terminal(None);
+    clear_terminal();
     let mut players: HashMap<String, String> = HashMap::new();
     loop {
         let message = "Enter your name (or enter DONE if no more players):";
@@ -89,7 +92,7 @@ fn get_players_list(use_debug: bool) -> Result<HashMap<String, String>, Error> {
                         user_validate("");
                     }
                     players.insert(name, key);
-                    clear_terminal(None);
+                    clear_terminal();
                 }
             }
         }
@@ -137,7 +140,7 @@ fn run_night(game: &mut GameStatus) {
 }
 
 fn display_home_menu (mut game: &mut GameStatus) {
-    clear_terminal(Some(game));
+    clear_terminal();
     if game.debug {
         run_action_crew_status(&mut game);
     }
@@ -160,7 +163,7 @@ fn display_home_menu (mut game: &mut GameStatus) {
 }
 
 fn run_action_log_in(game: &mut GameStatus) {
-    clear_terminal(Some(game));
+    clear_terminal();
     let key = user_non_empty_input("Entrez votre code d'identification:");
     let player_id = game.get_player_id_from_key(key);
     match player_id {
@@ -204,7 +207,7 @@ fn run_action_crew_status(game: &mut GameStatus) {
 }
 
 fn display_player_status_and_actions (mut game: &mut GameStatus) {
-    clear_terminal(Some(game));
+    clear_terminal();
     let player = game.get_current_player();
     let mut actions_list = Vec::new();
     let status = if player.alive {
@@ -256,7 +259,7 @@ fn log_out(game: &mut GameStatus) {
 }
 
 fn end_game(game: &GameStatus) {
-    clear_terminal(Some(game));
+    clear_terminal();
 
     let healthy_players = game.get_alive_players().iter().filter(|player| !player.infected).count();
     if healthy_players == 0 {
@@ -365,7 +368,7 @@ fn add_target_action(game: &mut GameStatus, actions_list: &mut Vec<Action>, acti
 }
 
 fn run_target_action(game: &mut GameStatus, action: ActionType) {
-    clear_terminal(Some(game));
+    clear_terminal();
     match game.get_current_target(&action) {
         Some(target) => println!("{} [{}]", get_header_text(action), target.name),
         None => println!("{}", get_header_text(action)),
@@ -463,8 +466,8 @@ fn user_ask_and_validate(message: &str) -> Result<Option<String>, io::Error> {
     return Ok(None);
 }
 
-fn clear_terminal(game: Option<&GameStatus>) {
-    if game.is_some_and(|game| game.debug) {
+fn clear_terminal() {
+    if unsafe { DEBUG } { // do better
         print!("\n\n\n");
     } else {
         print!("{}[2J", 27 as char);
