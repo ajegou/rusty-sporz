@@ -25,14 +25,14 @@ pub fn run_mutants_phase(game: &mut GameStatus) {
     let mutate_results = compute_votes_winner(
         game.get_alive_players().iter().filter(|player| player.infected),
         ActionType::Infect);
-    if mutate_results.is_some() {
-        let mutatee_name = &game.get_player(mutate_results.unwrap().0).name;
+    if let Some((player_id, _)) = mutate_results {
+        let mutatee_name = &game.get_player(player_id).name;
         game.limited_broadcast(Message { // Notify mutants of who was infected
             date: current_date,
             source: String::from("Overmind"),
             content: String::from(format!("Félicitations, cette nuit vous êtes parvenus à infecter: {mutatee_name}")),
         }, |player: &&mut &mut Player| player.infected);
-        let mutate_winner = game.get_mut_player(mutate_results.unwrap().0);
+        let mutate_winner = game.get_mut_player(player_id);
         mutate_winner.infected = true;
         mutate_winner.send_message(Message { // Notify the new mutant that he was infected
             date: current_date,
@@ -45,8 +45,8 @@ pub fn run_mutants_phase(game: &mut GameStatus) {
     let paralyze_result = compute_votes_winner(
         game.get_alive_players().iter().filter(|player| player.infected), 
         ActionType::Paralyze);
-    if paralyze_result.is_some() {
-        let paralyzed_player = game.get_mut_player(paralyze_result.unwrap().0);
+    if let Some((player_id, _)) = paralyze_result {
+        let paralyzed_player = game.get_mut_player(player_id);
         paralyzed_player.paralyzed = true;
         paralyzed_player.messages.push(Message {
             date: current_date,
