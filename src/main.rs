@@ -325,7 +325,7 @@ fn add_action_mutant(game: &mut PlayerTurn, actions_list: &mut Vec<Action>) {
 
 // Actions for roles
 
-fn add_action_patient_0(game: &mut PlayerTurn, actions_list: &mut Vec<Action>) {}
+fn add_action_patient_0(_game: &mut PlayerTurn, _actions_list: &mut Vec<Action>) {}
 
 fn add_action_psychologist(game: &mut PlayerTurn, actions_list: &mut Vec<Action>) {
     add_target_action(
@@ -347,11 +347,11 @@ fn add_action_physician(game: &mut PlayerTurn, actions_list: &mut Vec<Action>) {
     }
 }
 
-fn add_action_geneticist(game: &mut PlayerTurn, actions_list: &mut Vec<Action>) {
+fn add_action_geneticist(_game: &mut PlayerTurn, _actions_list: &mut Vec<Action>) {
     todo!();
 }
 
-fn add_action_it_engineer(game: &mut PlayerTurn, actions_list: &mut Vec<Action>) {}
+fn add_action_it_engineer(_game: &mut PlayerTurn, _actions_list: &mut Vec<Action>) {}
 
 fn add_action_spy(game: &mut PlayerTurn, actions_list: &mut Vec<Action>) {
     add_target_action(
@@ -362,15 +362,15 @@ fn add_action_spy(game: &mut PlayerTurn, actions_list: &mut Vec<Action>) {
     );
 }
 
-fn add_action_hacker(game: &mut PlayerTurn, actions_list: &mut Vec<Action>) {
+fn add_action_hacker(_game: &mut PlayerTurn, _actions_list: &mut Vec<Action>) {
     todo!();
 }
 
-fn add_action_traitor(game: &mut PlayerTurn, actions_list: &mut Vec<Action>) {
+fn add_action_traitor(_game: &mut PlayerTurn, _actions_list: &mut Vec<Action>) {
     todo!();
 }
 
-fn add_action_astronaut(game: &mut PlayerTurn, actions_list: &mut Vec<Action>) {}
+fn add_action_astronaut(_game: &mut PlayerTurn, _actions_list: &mut Vec<Action>) {}
 
 // Actions helpers
 
