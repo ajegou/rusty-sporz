@@ -1,5 +1,5 @@
 use crate::{
-  game::GameStatus,
+  game::{GameStatus, Game},
   role::Role,
   message::Message,
   action::ActionType,

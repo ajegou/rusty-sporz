@@ -7,11 +7,13 @@ mod helper;
 mod phases;
 mod message;
 mod interface;
+use action::{Action, Action::{GeneralAction, UserAction}};
+use game::{PlayerTurn, MetaGame};
 use interface::Color;
 use phases::{run_elimination_phase, run_it_phase, run_mutants_phase, run_physicians_phase, run_psychologist_phase};
 use std::env;
-use game::GameStatus;
-use action::{Action, ActionType, get_header_text, get_menu_text};
+use game::{ GameStatus, Game, PlayerGame };
+use action::{ActionType, get_header_text, get_menu_text};
 use role::Role;
 use std::error;
 use std::collections::HashMap;
@@ -38,7 +40,12 @@ fn main() -> Result<(), Box<dyn error::Error>> {
 
     let mut game = GameStatus::new(players);
     game.debug = debug;
-    start_game(game);
+    let game_status = MetaGame {
+        game_data: game,
+        current_player_id: None,
+        debug: debug,
+    };
+    start_game(game_status);
 
     return Ok(());
 }
@@ -100,17 +107,23 @@ fn get_players_list(use_debug: bool) -> Result<HashMap<String, String>, Error> {
     return Ok(players);
 }
 
-fn start_game (mut game: GameStatus) {
-    while !game.ended {
-        match game.current_player_id {
-            Some(_) => display_player_status_and_actions(&mut game),
-            None => display_home_menu(&mut game),
+fn start_game (mut game_status: MetaGame) {
+    while !&game_status.game_data.ended {
+        match game_status.current_player_id {
+            Some(current_player_id) => {
+                display_player_status_and_actions(
+                    &mut game_status,
+                    current_player_id,
+                );
+            }
+            None => display_home_menu(&mut game_status),
         }
     }
-    end_game(&game);
+    end_game(&game_status);
 }
 
-fn run_night(game: &mut GameStatus) {
+fn run_night(game_status: &mut MetaGame) {
+    let game = &mut game_status.game_data;
 
     // Check that everyone played
     if !game.debug {
@@ -139,46 +152,47 @@ fn run_night(game: &mut GameStatus) {
     game.prepare_new_turn();
 }
 
-fn display_home_menu (mut game: &mut GameStatus) {
+fn display_home_menu (mut game: &mut MetaGame) {
     clear_terminal();
     if game.debug {
         run_action_crew_status(&mut game);
     }
     println!("Bienvenue sur le terminal de control du K-141 {}", Color::Bright.color("Koursk"));
-    let mut actions_list = Vec::new();
-    actions_list.push(Action {
-        description: String::from("Identification"),
-        execute: run_action_log_in,
-    });
-    actions_list.push(Action {
-        description: String::from("Status de l'équipage"),
-        execute: run_action_crew_status,
-    });
-    actions_list.push(Action {
-        description: String::from("Fin de la journée"),
-        execute: run_night,
-    });
-    let action = user_select_action(&actions_list);
-    (action.execute)(&mut game);
+    let mut actions_list: Vec<Action> = Vec::new();
+    actions_list.push(GeneralAction(
+        String::from("Identification"),
+        run_action_log_in,
+    ));
+    actions_list.push(GeneralAction(
+        String::from("Status de l'équipage"),
+        run_action_crew_status,
+    ));
+    actions_list.push(GeneralAction(
+        String::from("Fin de la journée"),
+        run_night,
+    ));
+    match user_select_action(&actions_list) {
+        UserAction(_, _) => panic!(""), // Arghhhh, didn't expect to have to do this :/
+        GeneralAction(_, run) => run(&mut game),
+    }
 }
 
-fn run_action_log_in(game: &mut GameStatus) {
+fn run_action_log_in(game: &mut MetaGame) {
     clear_terminal();
     let key = user_non_empty_input("Entrez votre code d'identification:");
-    let player_id = game.get_player_id_from_key(key);
+    let player_id = game.game_data.get_player_id_from_key(key);
     match player_id {
         Some(player_id) => {
             game.current_player_id = Some(player_id);
-            game.get_mut_current_player().has_connected_today = true;
         }
         None => user_validate("Code invalide, appuyez sur ENTREE pour revenir a l'écran d'accueil."),
     }
 }
 
-fn run_action_crew_status(game: &mut GameStatus) {
+fn run_action_crew_status(game: &mut MetaGame) {
     let mut rng = rand::thread_rng(); // Used to generate random ids for display
     println!("\nStatus de l'équipage:");
-    for player in game.get_all_players() {
+    for player in game.game_data.get_all_players() {
         if game.debug {
             println!("* Membre d'équipage n°{} - {} {}: {}",
                 player.key,
@@ -206,8 +220,10 @@ fn run_action_crew_status(game: &mut GameStatus) {
     user_validate("");
 }
 
-fn display_player_status_and_actions (mut game: &mut GameStatus) {
+fn display_player_status_and_actions (mut game_status: &mut MetaGame, current_player_id: PlayerId) {
     clear_terminal();
+    let mut game = &mut PlayerTurn::new(&mut game_status.game_data, current_player_id);
+    game.get_mut_current_player().has_connected_today = true;
     let player = game.get_current_player();
     let mut actions_list = Vec::new();
     let status = if player.alive {
@@ -250,18 +266,20 @@ fn display_player_status_and_actions (mut game: &mut GameStatus) {
 
     add_exit_action(&mut actions_list);
 
-    let action = user_select_action(&actions_list);
-    (action.execute)(&mut game);
+    match user_select_action(&actions_list) {
+        UserAction(_, run) => run(&mut game),
+        GeneralAction(_, run) => run(&mut game_status),
+    }
 }
 
-fn log_out(game: &mut GameStatus) {
+fn log_out(game: &mut MetaGame) {
     game.current_player_id = None;
 }
 
-fn end_game(game: &GameStatus) {
+fn end_game(game: &MetaGame) {
     clear_terminal();
 
-    let healthy_players = game.get_alive_players().iter().filter(|player| !player.infected).count();
+    let healthy_players = game.game_data.get_alive_players().iter().filter(|player| !player.infected).count();
     if healthy_players == 0 {
         println!("===== Victoire des mutants =====");
         println!("Le Koursk est maintenant aux mains des mutants et, avec la coopération des centaines de passagers en sommeil, essaimera la mutation dans la galaxie.");
@@ -278,96 +296,96 @@ fn end_game(game: &GameStatus) {
 }
 // Action for elimination
 
-fn add_action_elimination(game: &mut GameStatus, actions_list: &mut Vec<Action>) {
+fn add_action_elimination(game: &mut PlayerTurn, actions_list: &mut Vec<Action>) {
     add_target_action(
         game,
         actions_list,
         ActionType::Eliminate,
-        |game: &mut GameStatus| run_target_action(game, ActionType::Eliminate),
+        |game: &mut PlayerTurn| run_target_action(game, ActionType::Eliminate),
     );
 }
 
 // Actions for mutants
 
-fn add_action_mutant(game: &mut GameStatus, actions_list: &mut Vec<Action>) {
+fn add_action_mutant(game: &mut PlayerTurn, actions_list: &mut Vec<Action>) {
     add_target_action(
         game,
         actions_list,
         ActionType::Infect,
-        |game: &mut GameStatus| run_target_action(game, ActionType::Infect),
+        |game: &mut PlayerTurn| run_target_action(game, ActionType::Infect),
     );
     add_target_action(
         game,
         actions_list,
         ActionType::Paralyze,
-        |game: &mut GameStatus| run_target_action(game, ActionType::Paralyze),
+        |game: &mut PlayerTurn| run_target_action(game, ActionType::Paralyze),
     );
     // add kill
 }
 
 // Actions for roles
 
-fn add_action_patient_0(game: &mut GameStatus, actions_list: &mut Vec<Action>) {}
+fn add_action_patient_0(game: &mut PlayerTurn, actions_list: &mut Vec<Action>) {}
 
-fn add_action_psychologist(game: &mut GameStatus, actions_list: &mut Vec<Action>) {
+fn add_action_psychologist(game: &mut PlayerTurn, actions_list: &mut Vec<Action>) {
     add_target_action(
         game,
         actions_list,
         ActionType::Psychoanalyze,
-        |game: &mut GameStatus| run_target_action(game, ActionType::Psychoanalyze),
+        |game: &mut PlayerTurn| run_target_action(game, ActionType::Psychoanalyze),
     );
 }
 
-fn add_action_physician(game: &mut GameStatus, actions_list: &mut Vec<Action>) {
+fn add_action_physician(game: &mut PlayerTurn, actions_list: &mut Vec<Action>) {
     if !game.get_current_player().infected { // An infected physician cannot cure
         add_target_action(
             game,
             actions_list,
             ActionType::Cure,
-            |game: &mut GameStatus| run_target_action(game, ActionType::Cure),
+            |game: &mut PlayerTurn| run_target_action(game, ActionType::Cure),
         );
     }
 }
 
-fn add_action_geneticist(game: &mut GameStatus, actions_list: &mut Vec<Action>) {
+fn add_action_geneticist(game: &mut PlayerTurn, actions_list: &mut Vec<Action>) {
     todo!();
 }
 
-fn add_action_it_engineer(game: &mut GameStatus, actions_list: &mut Vec<Action>) {}
+fn add_action_it_engineer(game: &mut PlayerTurn, actions_list: &mut Vec<Action>) {}
 
-fn add_action_spy(game: &mut GameStatus, actions_list: &mut Vec<Action>) {
+fn add_action_spy(game: &mut PlayerTurn, actions_list: &mut Vec<Action>) {
     add_target_action(
         game,
         actions_list,
         ActionType::Spy,
-        |game: &mut GameStatus| run_target_action(game, ActionType::Spy),
+        |game: &mut PlayerTurn| run_target_action(game, ActionType::Spy),
     );
 }
 
-fn add_action_hacker(game: &mut GameStatus, actions_list: &mut Vec<Action>) {
+fn add_action_hacker(game: &mut PlayerTurn, actions_list: &mut Vec<Action>) {
     todo!();
 }
 
-fn add_action_traitor(game: &mut GameStatus, actions_list: &mut Vec<Action>) {
+fn add_action_traitor(game: &mut PlayerTurn, actions_list: &mut Vec<Action>) {
     todo!();
 }
 
-fn add_action_astronaut(game: &mut GameStatus, actions_list: &mut Vec<Action>) {}
+fn add_action_astronaut(game: &mut PlayerTurn, actions_list: &mut Vec<Action>) {}
 
 // Actions helpers
 
-fn add_target_action(game: &mut GameStatus, actions_list: &mut Vec<Action>, action: ActionType, run: fn(&mut GameStatus)) {
+fn add_target_action(game: &mut PlayerTurn, actions_list: &mut Vec<Action>, action: ActionType, run: fn(&mut PlayerTurn)) {
     // It's a bit annoying to have to take "run" here, but closures using the scope seem to be a bit trickier
-    actions_list.push(Action {
-        description: match game.get_current_target(&action) {
+    actions_list.push(UserAction(
+        match game.get_current_target(&action) {
             Some(target) => format!("{} [{}]", get_menu_text(action) , target.name),
             None => format!("{}", get_menu_text(action)),
         },
-        execute: run,
-    });
+        run,
+    ));
 }
 
-fn run_target_action(game: &mut GameStatus, action: ActionType) {
+fn run_target_action(game: &mut PlayerTurn, action: ActionType) {
     clear_terminal();
     match game.get_current_target(&action) {
         Some(target) => println!("{} [{}]", get_header_text(action), target.name),
@@ -381,7 +399,7 @@ fn run_target_action(game: &mut GameStatus, action: ActionType) {
 // Selection helpers
 
 fn add_exit_action(actions_list: &mut Vec<Action>) {
-    actions_list.push(Action { description: String::from("Déconnection"), execute: log_out });
+    actions_list.push(GeneralAction(String::from("Déconnection"), log_out ));
 }
 
 fn user_select_target<'a>(targets_list: &'a Vec<&'a Player>) -> Option<&'a Player> {
@@ -401,7 +419,10 @@ fn user_select_target<'a>(targets_list: &'a Vec<&'a Player>) -> Option<&'a Playe
 
 fn user_select_action<'a>(actions_list: &'a Vec<Action>) -> &'a Action {
     for (idx, action) in actions_list.iter().enumerate() {
-        println!("{idx}) {}", action.description);
+        match action { // Hmmm... weird...
+            UserAction(description, _) => println!("{idx}) {}", description),
+            GeneralAction(description, _) => println!("{idx}) {}", description),
+        }
     }
     let accepted_answers: Vec<String> = (0..actions_list.len())
         .map(|value| { value.to_string() })

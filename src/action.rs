@@ -1,15 +1,8 @@
-use crate::game::GameStatus;
+use crate::game::{PlayerTurn, MetaGame};
 
-// #[derive(Debug)]
-pub struct Action {
-  pub description: String,
-  pub execute: fn(&mut GameStatus),
-}
-
-impl PartialEq for Action {
-  fn eq(&self, other: &Self) -> bool {
-    return self.description == other.description;
-  }
+pub enum Action {
+  UserAction(String, fn (&mut PlayerTurn)),
+  GeneralAction(String, fn (&mut MetaGame)),
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
