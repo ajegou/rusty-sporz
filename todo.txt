@@ -1,0 +1,18 @@
+* spy
+* geneticist
+* hacker
+* traitor
+* physician: allow activating an option to cure (or kill) the other physician is he doesn't wake up
+* physician: make the choice a list (in case both targeted the same player)
+* physician: allow killing 1 instead of curing x
+* physician: know who is the other physician at the beginning of the game
+* mutants: allow killing instead of mutating
+* election of leader -> need an ordered list
+* genome
+* customized list of roles
+* elimination vote: should be a majority (including white votes), not absolute majority
+* add a special key for dead people to see the full status
+* early end of game when mutants have won -> no more healthy physicians, at least 2 mutants
+* elimination vote -> players should be allowed to update their actions after the vote
+* in-game explanations
+* fluf
