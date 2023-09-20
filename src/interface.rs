@@ -31,7 +31,7 @@ impl Interface {
   fn read_line (&mut self, input: &mut String) -> Result<usize, std::io::Error> {
     if let Some(next_mock) = self.input_mock.pop() {
       let bytes = next_mock.len();
-      print!("MOCK:{next_mock}");
+      print!("{}", colors::Color::FgCyan.color(&next_mock));
       *input = next_mock;
       return Ok(bytes);
     } else {

@@ -40,8 +40,7 @@ impl <'a> GameCreator<'a> {
       break name;
     };
     let key = self.id_keys.pop().unwrap().to_string();
-    println!("{name}, votre code secret est: '{key}', ne l'oubliez pas! Vous en aurez besoin pour vous identifier.");
-    self.interface.user_validate("");
+    self.interface.user_validate(format!("{name}, votre code secret est: '{key}', ne l'oubliez pas! Vous en aurez besoin pour vous identifier.").as_str());
     self.player_names.insert(name, key);
   }
 
