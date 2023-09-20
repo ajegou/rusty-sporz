@@ -1,8 +1,8 @@
-use crate::game::{PlayerGame, MetaGame};
+use crate::game::{PlayerGame, GameStatus};
 
 pub enum Action {
   UserAction(String, fn (&mut dyn PlayerGame)),
-  GeneralAction(String, fn (&mut MetaGame)),
+  GeneralAction(String, fn (&mut GameStatus)),
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]

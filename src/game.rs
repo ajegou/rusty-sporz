@@ -18,12 +18,6 @@ pub struct PlayerTurn<'a> {
   current_player_id: PlayerId,
 }
 
-pub struct MetaGame {
-    pub game_data: GameStatus,
-    pub current_player_id: Option<PlayerId>,
-    pub debug: bool,
-}
-
 pub trait Game {
   fn get_date(&self) -> u32;
   fn get_player_id_from_key(&self, key: String) -> Option<PlayerId>;
@@ -61,14 +55,9 @@ impl GameStatus {
     self.players.iter_mut().for_each(|player| player.prepare_new_turn());
     self.date += 1;
   }
-}
 
-impl <'a> PlayerTurn<'a> {
-  pub fn new (game: &'a mut GameStatus, current_player_id: PlayerId) -> PlayerTurn<'a> {
-    PlayerTurn {
-      game,
-      current_player_id
-    }
+  pub fn get_player_game<'a> (&'a mut self, current_player_id: PlayerId) -> PlayerTurn<'a> {
+    return PlayerTurn{ game: self, current_player_id };
   }
 }
 

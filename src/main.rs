@@ -8,7 +8,6 @@ mod phases;
 mod message;
 mod interface;
 use action::{Action, Action::{GeneralAction, UserAction}};
-use game::{MetaGame};
 use interface::Color;
 use phases::{run_elimination_phase, run_it_phase, run_mutants_phase, run_physicians_phase, run_psychologist_phase};
 use std::env;
@@ -25,8 +24,6 @@ use player::{Player, PlayerId};
 use rand::seq::SliceRandom;
 use rand::Rng;
 
-use crate::game::PlayerTurn;
-
 static mut DEBUG: bool = false;
 
 fn main() -> Result<(), Box<dyn error::Error>> {
@@ -42,12 +39,7 @@ fn main() -> Result<(), Box<dyn error::Error>> {
 
     let mut game = GameStatus::new(players);
     game.debug = debug;
-    let game_status = MetaGame {
-        game_data: game,
-        current_player_id: None,
-        debug: debug,
-    };
-    start_game(game_status);
+    start_game(game);
 
     return Ok(());
 }
@@ -109,24 +101,22 @@ fn get_players_list(use_debug: bool) -> Result<HashMap<String, String>, Error> {
     return Ok(players);
 }
 
-fn start_game (mut game_status: MetaGame) {
-    while !&game_status.game_data.ended {
-        match game_status.current_player_id {
+fn start_game (mut game: GameStatus) {
+    while !&game.ended {
+        match game.current_player_id {
             Some(current_player_id) => {
                 display_player_status_and_actions(
-                    &mut game_status,
+                    &mut game,
                     current_player_id,
                 );
             }
-            None => display_home_menu(&mut game_status),
+            None => display_home_menu(&mut game),
         }
     }
-    end_game(&game_status);
+    end_game(&game);
 }
 
-fn run_night(game_status: &mut MetaGame) {
-    let game = &mut game_status.game_data;
-
+fn run_night(game: &mut GameStatus) {
     // Check that everyone played
     if !game.debug {
         let living_players = game.get_alive_players();
@@ -154,7 +144,7 @@ fn run_night(game_status: &mut MetaGame) {
     game.prepare_new_turn();
 }
 
-fn display_home_menu (mut game: &mut MetaGame) {
+fn display_home_menu (mut game: &mut GameStatus) {
     clear_terminal();
     if game.debug {
         run_action_crew_status(&mut game);
@@ -179,10 +169,10 @@ fn display_home_menu (mut game: &mut MetaGame) {
     }
 }
 
-fn run_action_log_in(game: &mut MetaGame) {
+fn run_action_log_in(game: &mut GameStatus) {
     clear_terminal();
     let key = user_non_empty_input("Entrez votre code d'identification:");
-    let player_id = game.game_data.get_player_id_from_key(key);
+    let player_id = game.get_player_id_from_key(key);
     match player_id {
         Some(player_id) => {
             game.current_player_id = Some(player_id);
@@ -191,10 +181,10 @@ fn run_action_log_in(game: &mut MetaGame) {
     }
 }
 
-fn run_action_crew_status(game: &mut MetaGame) {
+fn run_action_crew_status(game: &mut GameStatus) {
     let mut rng = rand::thread_rng(); // Used to generate random ids for display
     println!("\nStatus de l'équipage:");
-    for player in game.game_data.get_all_players() {
+    for player in game.get_all_players() {
         if game.debug {
             println!("* Membre d'équipage n°{} - {} {}: {}",
                 player.key,
@@ -222,9 +212,9 @@ fn run_action_crew_status(game: &mut MetaGame) {
     user_validate("");
 }
 
-fn display_player_status_and_actions (mut game_status: &mut MetaGame, current_player_id: PlayerId) {
+fn display_player_status_and_actions (mut game_status: &mut GameStatus, current_player_id: PlayerId) {
     clear_terminal();
-    let mut game: &mut dyn PlayerGame = &mut PlayerTurn::new(&mut game_status.game_data, current_player_id);
+    let game: &mut dyn PlayerGame = &mut game_status.get_player_game(current_player_id);
     game.get_mut_current_player().has_connected_today = true;
     let player = game.get_current_player();
     let mut actions_list = Vec::new();
@@ -274,14 +264,14 @@ fn display_player_status_and_actions (mut game_status: &mut MetaGame, current_pl
     }
 }
 
-fn log_out(game: &mut MetaGame) {
+fn log_out(game: &mut GameStatus) {
     game.current_player_id = None;
 }
 
-fn end_game(game: &MetaGame) {
+fn end_game(game: &GameStatus) {
     clear_terminal();
 
-    let healthy_players = game.game_data.get_alive_players().iter().filter(|player| !player.infected).count();
+    let healthy_players = game.get_alive_players().iter().filter(|player| !player.infected).count();
     if healthy_players == 0 {
         println!("===== Victoire des mutants =====");
         println!("Le Koursk est maintenant aux mains des mutants et, avec la coopération des centaines de passagers en sommeil, essaimera la mutation dans la galaxie.");
