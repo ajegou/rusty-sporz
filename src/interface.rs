@@ -1,4 +1,4 @@
-use std::io;
+use std::{io, collections::HashMap};
 use std::io::Write;
 
 use crate::{player::Player, action::Action, action::Action::{UserAction, GeneralAction}, DEBUG};
@@ -34,6 +34,28 @@ pub fn user_select_action<'a>(actions_list: &'a Vec<Action>) -> &'a Action {
   return &actions_list[choice];
 }
 
+pub fn user_select<'a, T: std::fmt::Display> (options_list: impl Iterator<Item = &'a T>) -> &'a T {
+  let mut options_by_idx: HashMap<String, &T> = HashMap::new();
+  let mut idx = 1;
+  for option in options_list {
+      println!("{idx}) {}", option);
+      options_by_idx.insert(idx.to_string(), option);
+      idx += 1;
+  }
+
+  println!();
+  loop {
+      let mut input = String::new();
+      print!("Quel est votre choix? ");
+      io::stdout().flush().unwrap();
+      io::stdin().read_line(&mut input).unwrap();
+      input = input.trim().to_string();
+      if let Some(selection) = options_by_idx.remove(&input) {
+        return selection;
+      }
+  }
+}
+
 fn user_choice(message: &str, accepted_answers: Vec<String>) -> String {
   println!();
   loop {
@@ -65,29 +87,6 @@ pub fn user_non_empty_input(message: &str) -> String {
           return input;
       }
   }
-}
-
-pub fn user_ask_and_validate(message: &str) -> Result<Option<String>, io::Error> {
-  let mut input = String::new();
-
-  while input.len() == 0 {
-      print!("{message} ");
-      io::stdout().flush()?;
-      io::stdin().read_line(&mut input)?;
-      input = input.trim().to_string();
-  }
-
-  print!("Your entered '{input}', type 'y' to validate: ");
-  io::stdout().flush()?;
-
-  let mut validation = String::new();
-  io::stdin().read_line(&mut validation)?;
-  validation = validation.trim().to_string();
-
-  if validation == "y" {
-      return Ok(Some(input));
-  }
-  return Ok(None);
 }
 
 pub fn clear_terminal() {

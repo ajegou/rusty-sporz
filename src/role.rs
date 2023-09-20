@@ -27,23 +27,5 @@ impl fmt::Display for Role {
         Role::Traitor => write!(f, "Traitre·sse"),
         Role::Astronaut => write!(f, "Astronaute"),
     }
-}
-}
-
-pub fn get_roles (number_of_players: u32) -> Result<Vec<Role>, String>{ // maybe return specific errors
-  if number_of_players < 7 {
-    return Err("Sorry, the game cannot be played with less than 7 players.".to_string());
   }
-  if number_of_players > 7 {
-    return Err("Sorry, the game cannot currently be played with more than 7 players.".to_string());
-  }
-  return Ok(vec![
-    Role::Patient0,
-    Role::Psychologist,
-    Role::ITEngineer,
-    Role::Physician,
-    Role::Physician,
-    Role::Astronaut,
-    Role::Spy,
-  ]);
 }
