@@ -1,8 +1,8 @@
-use crate::game::{PlayerGame, Game};
+use crate::{game::{PlayerGame, Game}, interface::Interface};
 
 pub enum Action {
-  UserAction(String, fn (&mut dyn PlayerGame)),
-  GeneralAction(String, fn (&mut dyn Game)),
+  UserAction(String, fn (&mut dyn PlayerGame, &mut Interface)),
+  GeneralAction(String, fn (&mut dyn Game, &mut Interface)),
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]

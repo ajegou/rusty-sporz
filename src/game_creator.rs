@@ -1,30 +1,31 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::fmt;
 use std::error;
 
 use rand::thread_rng;
 use rand::seq::SliceRandom;
 
+use crate::debug::DEBUG_PLAYER_NAMES;
 use crate::game::GameStatus;
 use crate::interface::Interface;
 use crate::player::Player;
 use crate::role::Role;
 
-struct GameCreator {
+struct GameCreator<'a> {
   debug: bool,
-  interface: Interface,
+  interface: &'a mut Interface,
   id_keys: Vec<String>,
-  player_names: HashMap<String, String>,
+  player_names: BTreeMap<String, String>, // want a sorted map for simpler debug
   custom_roles: Option<Vec<Role>>,
 }
 
-impl GameCreator {
-  pub fn new (interface: Interface, debug: bool) -> GameCreator {
+impl <'a> GameCreator<'a> {
+  pub fn new (interface: &'a mut Interface, debug: bool) -> GameCreator<'a> {
     GameCreator {
       debug,
       interface,
       id_keys: generaye_keys(debug),
-      player_names: HashMap::new(),
+      player_names: BTreeMap::new(),
       custom_roles: None,
     }
   }
@@ -40,9 +41,7 @@ impl GameCreator {
     };
     let key = self.id_keys.pop().unwrap().to_string();
     println!("{name}, votre code secret est: '{key}', ne l'oubliez pas! Vous en aurez besoin pour vous identifier.");
-    if !self.debug {
-      self.interface.user_validate("");
-    }
+    self.interface.user_validate("");
     self.player_names.insert(name, key);
   }
 
@@ -69,7 +68,9 @@ impl GameCreator {
     while roles.len() < self.player_names.len() {
       roles.push(Role::Astronaut);
     }
-    roles.shuffle(&mut thread_rng());
+    if !self.debug { // Keep the roles ordered when debugging
+      roles.shuffle(&mut thread_rng());
+    }
     return roles;
   }
 
@@ -96,17 +97,20 @@ impl GameCreator {
     let mut next_user_id = 0;
     let mut players: Vec<Player> = Vec::new();
     for (name, key) in self.player_names {
-        let role = roles.pop().unwrap();
-        let player = Player::new(next_user_id, key, name, role);
-        players.push(player);
-        next_user_id += 1;
+      let role = roles.pop().unwrap();
+      let player = Player::new(next_user_id, key, name, role);
+      players.push(player);
+      next_user_id += 1;
     }
-    Ok(GameStatus::new(players, self.interface, self.debug))
+    Ok(GameStatus::new(players, self.debug))
   }
 }
 
-pub fn create_game (interface: Interface, args: Vec<String>) -> Result<GameStatus, Box<dyn error::Error>> {
+pub fn create_game (interface: &mut Interface, args: Vec<String>) -> Result<GameStatus, Box<dyn error::Error>> {
   let debug = args.contains(&String::from("--debug"));
+  if debug {
+    mock_game_creator(interface);
+  }
   let mut game_creator = GameCreator::new(interface, debug);
 
   enum Options {
@@ -153,4 +157,15 @@ fn generaye_keys (debug: bool) -> Vec<String> {
       keys.shuffle(&mut thread_rng());
   }
   return keys;
+}
+
+fn mock_game_creator (interface: &mut Interface) {
+  let mut inputs = Vec::new();
+  for name in DEBUG_PLAYER_NAMES {
+    inputs.push(String::from("1\n"));
+    inputs.push(format!("{name}\n"));
+    inputs.push(String::from(""));
+  }
+  inputs.push(String::from("3\n"));
+  interface.mock(inputs);
 }

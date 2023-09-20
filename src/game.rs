@@ -1,6 +1,5 @@
 use std::slice::Iter;
 
-use crate::interface::Interface;
 use crate::message::Message;
 use crate::player::{Player, PlayerId};
 use crate::action::ActionType;
@@ -10,17 +9,15 @@ pub struct GameStatus {
   players: Vec<Player>,
   current_player_id: Option<PlayerId>,
   debug: bool,
-  interface: Interface,
 }
 
 impl GameStatus {
-  pub fn new (players: Vec<Player>, interface: Interface, debug: bool) -> GameStatus {
+  pub fn new (players: Vec<Player>, debug: bool) -> GameStatus {
     GameStatus{
       players,
       current_player_id: None,
       debug,
       date: 1,
-      interface,
     }
   }
 }
@@ -32,7 +29,6 @@ pub struct PlayerTurn<'a> {
 
 pub trait Game {
   fn debug(&self) -> bool;
-  fn interface(&self) -> &Interface;
   fn get_date(&self) -> u32;
   fn get_player_id_from_key(&self, key: String) -> Option<PlayerId>;
   fn get_player(&self, id: PlayerId) -> &Player;
@@ -59,10 +55,6 @@ pub trait PlayerGame: Game {
 }
 
 impl Game for GameStatus {
-  fn interface(&self) -> &Interface {
-    return &self.interface;
-  }
-
   fn debug(&self) -> bool {
     return self.debug;
   }
@@ -167,11 +159,6 @@ impl <'b> PlayerGame for PlayerTurn<'b> {
 }
 
 impl <'b> Game for PlayerTurn<'b> { // Proxy everything to self.game
-
-  fn interface(&self) -> &Interface {
-    self.game.interface()
-  }
-
   fn debug(&self) -> bool {
     self.game.debug()
   }

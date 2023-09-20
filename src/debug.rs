@@ -1,10 +1,12 @@
 
-pub static NAMES: [&str; 7] = [
+pub static DEBUG_PLAYER_NAMES: [&str; 9] = [
   "Mal",
   "Zoe",
   "Wash",
   "Inara",
   "Kaylee",
   "Jayne",
-  "Cobb",
+  "Book",
+  "Simon",
+  "River",
 ];

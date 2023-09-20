@@ -20,36 +20,34 @@ use rand::Rng;
 
 use crate::interface::{Interface, colors::Color};
 
-pub static mut DEBUG: bool = false;
-
 fn main() -> Result<(), Box<dyn error::Error>> {
     let args: Vec<String> = env::args().collect();
     let debug = args.contains(&String::from("--debug"));
-    unsafe { DEBUG = debug }; // Shitty, mostly for interface, will do better
 
-    let interface = Interface::new(debug);
-    let game = game_creator::create_game(interface, args)?;
-    start_game(game);
+    let mut interface = Interface::new(debug);
+    let game = game_creator::create_game(&mut interface, args)?;
+    start_game(game, &mut interface);
 
     return Ok(());
 }
 
-fn start_game (mut game: impl Game) {
+fn start_game (mut game: impl Game, interface: &mut Interface) {
     while !game.ended() {
         match game.get_current_player_id() {
             Some(current_player_id) => {
                 display_player_status_and_actions(
                     &mut game,
+                    interface,
                     current_player_id,
                 );
             }
-            None => display_home_menu(&mut game),
+            None => display_home_menu(&mut game, interface),
         }
     }
-    end_game(game);
+    end_game(game, interface);
 }
 
-fn run_night(game: &mut dyn Game) {
+fn run_night(game: &mut dyn Game, interface: &mut Interface) {
     // Check that everyone played
     if !game.debug() {
         let living_players = game.get_alive_players();
@@ -58,7 +56,7 @@ fn run_night(game: &mut dyn Game) {
             .filter_map(|player| if player.has_connected_today { None } else { Some(&player.name) })
             .collect::<Vec<&String>>();
         if missing_players.len() > 0 {
-            game.interface().user_validate(format!("J'exige la visite des membres d'équipages {:?} avant l'extinction des feux", missing_players).as_str());
+            interface.user_validate(format!("J'exige la visite des membres d'équipages {:?} avant l'extinction des feux", missing_players).as_str());
             return;
         }
     }
@@ -72,10 +70,10 @@ fn run_night(game: &mut dyn Game) {
     game.prepare_new_turn();
 }
 
-fn display_home_menu (game: &mut dyn Game) {
-    game.interface().clear_terminal();
+fn display_home_menu (game: &mut dyn Game, interface: &mut Interface) {
+    interface.clear_terminal();
     if game.debug() {
-        run_action_crew_status(game);
+        run_action_crew_status(game, interface);
     }
     println!("Bienvenue sur le terminal de control du K-141 {}", Color::Bright.color("Koursk"));
     let mut actions_list: Vec<Action> = Vec::new();
@@ -91,25 +89,25 @@ fn display_home_menu (game: &mut dyn Game) {
         String::from("Fin de la journée"),
         run_night,
     ));
-    match game.interface().user_select_action(&actions_list) {
+    match interface.user_select_action(&actions_list) {
         UserAction(_, _) => panic!(""), // Arghhhh, didn't expect to have to do this :/
-        GeneralAction(_, run) => run(game),
+        GeneralAction(_, run) => run(game, interface),
     }
 }
 
-fn run_action_log_in(game: &mut dyn Game) {
-    game.interface().clear_terminal();
-    let key = game.interface().user_non_empty_input("Entrez votre code d'identification:");
+fn run_action_log_in(game: &mut dyn Game, interface: &mut Interface) {
+    interface.clear_terminal();
+    let key = interface.user_non_empty_input("Entrez votre code d'identification:");
     let player_id = game.get_player_id_from_key(key);
     match player_id {
         Some(player_id) => {
             game.set_current_player_id(Some(player_id));
         }
-        None => game.interface().user_validate("Code invalide, appuyez sur ENTREE pour revenir a l'écran d'accueil."),
+        None => interface.user_validate("Code invalide, appuyez sur ENTREE pour revenir a l'écran d'accueil."),
     }
 }
 
-fn run_action_crew_status(game: &mut dyn Game) {
+fn run_action_crew_status(game: &mut dyn Game, interface: &mut Interface) {
     let mut rng = rand::thread_rng(); // Used to generate random ids for display
     println!("\nStatus de l'équipage:");
     for player in game.get_all_players() {
@@ -137,11 +135,11 @@ fn run_action_crew_status(game: &mut dyn Game) {
 
         }
     }
-    game.interface().user_validate("");
+    interface.user_validate("");
 }
 
-fn display_player_status_and_actions (game_status: &mut impl Game, current_player_id: PlayerId) {
-    game_status.interface().clear_terminal();
+fn display_player_status_and_actions (game_status: &mut impl Game, interface: &mut Interface, current_player_id: PlayerId) {
+    interface.clear_terminal();
     let game: &mut dyn PlayerGame = &mut game_status.get_player_game(current_player_id);
     game.get_mut_current_player().has_connected_today = true;
     let player = game.get_current_player();
@@ -186,18 +184,18 @@ fn display_player_status_and_actions (game_status: &mut impl Game, current_playe
 
     add_exit_action(&mut actions_list);
 
-    match game.interface().user_select_action(&actions_list) {
-        UserAction(_, run) => run(game),
-        GeneralAction(_, run) => run(game_status),
+    match interface.user_select_action(&actions_list) {
+        UserAction(_, run) => run(game, interface),
+        GeneralAction(_, run) => run(game_status, interface),
     }
 }
 
-fn log_out(game: &mut dyn Game) {
+fn log_out(game: &mut dyn Game, _interface: &mut Interface) {
     game.set_current_player_id(None);
 }
 
-fn end_game(game: impl Game) {
-    game.interface().clear_terminal();
+fn end_game(game: impl Game, interface: &mut Interface) {
+    interface.clear_terminal();
 
     let healthy_players = game.get_alive_players().iter().filter(|player| !player.infected).count();
     if healthy_players == 0 {
@@ -221,7 +219,7 @@ fn add_action_elimination(game: &mut dyn PlayerGame, actions_list: &mut Vec<Acti
         game,
         actions_list,
         ActionType::Eliminate,
-        |game: &mut dyn PlayerGame| run_target_action(game, ActionType::Eliminate),
+        |game: &mut dyn PlayerGame, interface: &mut Interface| run_target_action(game, interface, ActionType::Eliminate),
     );
 }
 
@@ -232,13 +230,13 @@ fn add_action_mutant(game: &mut dyn PlayerGame, actions_list: &mut Vec<Action>) 
         game,
         actions_list,
         ActionType::Infect,
-        |game: &mut dyn PlayerGame| run_target_action(game, ActionType::Infect),
+        |game: &mut dyn PlayerGame, interface: &mut Interface| run_target_action(game, interface, ActionType::Infect),
     );
     add_target_action(
         game,
         actions_list,
         ActionType::Paralyze,
-        |game: &mut dyn PlayerGame| run_target_action(game, ActionType::Paralyze),
+        |game: &mut dyn PlayerGame, interface: &mut Interface| run_target_action(game, interface, ActionType::Paralyze),
     );
     // add kill
 }
@@ -252,7 +250,7 @@ fn add_action_psychologist(game: &mut dyn PlayerGame, actions_list: &mut Vec<Act
         game,
         actions_list,
         ActionType::Psychoanalyze,
-        |game: &mut dyn PlayerGame| run_target_action(game, ActionType::Psychoanalyze),
+        |game: &mut dyn PlayerGame, interface: &mut Interface| run_target_action(game, interface, ActionType::Psychoanalyze),
     );
 }
 
@@ -262,7 +260,7 @@ fn add_action_physician(game: &mut dyn PlayerGame, actions_list: &mut Vec<Action
             game,
             actions_list,
             ActionType::Cure,
-            |game: &mut dyn PlayerGame| run_target_action(game, ActionType::Cure),
+            |game: &mut dyn PlayerGame, interface: &mut Interface| run_target_action(game, interface, ActionType::Cure),
         );
     }
 }
@@ -278,7 +276,7 @@ fn add_action_spy(game: &mut dyn PlayerGame, actions_list: &mut Vec<Action>) {
         game,
         actions_list,
         ActionType::Spy,
-        |game: &mut dyn PlayerGame| run_target_action(game, ActionType::Spy),
+        |game: &mut dyn PlayerGame, interface: &mut Interface| run_target_action(game, interface, ActionType::Spy),
     );
 }
 
@@ -294,7 +292,7 @@ fn add_action_astronaut(_game: &mut dyn PlayerGame, _actions_list: &mut Vec<Acti
 
 // Actions helpers
 
-fn add_target_action(game: &mut dyn PlayerGame, actions_list: &mut Vec<Action>, action: ActionType, run: fn(&mut dyn PlayerGame)) {
+fn add_target_action(game: &mut dyn PlayerGame, actions_list: &mut Vec<Action>, action: ActionType, run: fn(&mut dyn PlayerGame, interface: &mut Interface)) {
     // It's a bit annoying to have to take "run" here, but closures using the scope seem to be a bit trickier
     actions_list.push(UserAction(
         match game.get_current_target(&action) {
@@ -305,14 +303,14 @@ fn add_target_action(game: &mut dyn PlayerGame, actions_list: &mut Vec<Action>, 
     ));
 }
 
-fn run_target_action(game: &mut dyn PlayerGame, action: ActionType) {
-    game.interface().clear_terminal();
+fn run_target_action(game: &mut dyn PlayerGame, interface: &mut Interface, action: ActionType) {
+    interface.clear_terminal();
     match game.get_current_target(&action) {
         Some(target) => println!("{} [{}]", get_header_text(action), target.name),
         None => println!("{}", get_header_text(action)),
     }
     let targets: Vec<&Player> = game.get_alive_players();
-    let selected = game.interface().user_select_target(&targets);
+    let selected = interface.user_select_target(&targets);
     game.set_current_target(&action, selected.map(|player| player.id));
 }
 
