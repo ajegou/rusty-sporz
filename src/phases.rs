@@ -1,5 +1,5 @@
 use crate::{
-  game::{GameStatus, Game},
+  game::Game,
   role::Role,
   message::Message,
   action::ActionType,
@@ -7,7 +7,7 @@ use crate::{
   player::Player};
 
 
-pub fn run_mutants_phase(game: &mut GameStatus) {
+pub fn run_mutants_phase(game: &mut dyn Game) {
   let current_date = game.get_date(); // do better
 
     // Notify the mutants of who the other mutants are
@@ -57,7 +57,7 @@ pub fn run_mutants_phase(game: &mut GameStatus) {
 }
 
 
-pub fn run_physicians_phase(game: &mut GameStatus) {
+pub fn run_physicians_phase(game: &mut dyn Game) {
   let current_date = game.get_date(); // do better
 
   // Cure one player
@@ -123,7 +123,7 @@ pub fn run_physicians_phase(game: &mut GameStatus) {
   }
 }
 
-pub fn run_elimination_phase(game: &mut GameStatus) {
+pub fn run_elimination_phase(game: &mut dyn Game) {
   let current_date = game.get_date(); // do better
 
   // Check votes to eliminate a player
@@ -162,7 +162,7 @@ pub fn run_elimination_phase(game: &mut GameStatus) {
   }
 }
 
-pub fn run_it_phase(game: &mut GameStatus) {
+pub fn run_it_phase(game: &mut dyn Game) {
   let current_date = game.get_date(); // do better
 
   // Tell the IT guy how many mutants are in play
@@ -178,7 +178,7 @@ pub fn run_it_phase(game: &mut GameStatus) {
   }
 }
 
-pub fn run_psychologist_phase(game: &mut GameStatus) {
+pub fn run_psychologist_phase(game: &mut dyn Game) {
   let current_date = game.get_date(); // do better
   let psychologists_ids = game.get_player_ids(&|player| player.role == Role::Psychologist);
   for psychologists_id in psychologists_ids {

@@ -11,7 +11,7 @@ use action::{Action, Action::{GeneralAction, UserAction}};
 use interface::Color;
 use phases::{run_elimination_phase, run_it_phase, run_mutants_phase, run_physicians_phase, run_psychologist_phase};
 use std::env;
-use game::{ GameStatus, Game, PlayerGame };
+use game::{ Game, PlayerGame, GameStatus };
 use action::{ActionType, get_header_text, get_menu_text};
 use role::Role;
 use std::error;
@@ -37,8 +37,7 @@ fn main() -> Result<(), Box<dyn error::Error>> {
     roles.shuffle(&mut thread_rng());
     let players = create_players(players_names, roles);
 
-    let mut game = GameStatus::new(players);
-    game.debug = debug;
+    let game = GameStatus::new(players, debug);
     start_game(game);
 
     return Ok(());
@@ -101,9 +100,9 @@ fn get_players_list(use_debug: bool) -> Result<HashMap<String, String>, Error> {
     return Ok(players);
 }
 
-fn start_game (mut game: GameStatus) {
-    while !&game.ended {
-        match game.current_player_id {
+fn start_game (mut game: impl Game) {
+    while !game.ended() {
+        match game.get_current_player_id() {
             Some(current_player_id) => {
                 display_player_status_and_actions(
                     &mut game,
@@ -113,12 +112,12 @@ fn start_game (mut game: GameStatus) {
             None => display_home_menu(&mut game),
         }
     }
-    end_game(&game);
+    end_game(game);
 }
 
-fn run_night(game: &mut GameStatus) {
+fn run_night(game: &mut dyn Game) {
     // Check that everyone played
-    if !game.debug {
+    if !game.debug() {
         let living_players = game.get_alive_players();
         let missing_players = living_players
             .iter()
@@ -136,18 +135,13 @@ fn run_night(game: &mut GameStatus) {
     run_it_phase(game);
     run_psychologist_phase(game);
 
-    let healthy_players = game.get_alive_players().iter().filter(|player| !player.infected).count();
-    if healthy_players == 0 || healthy_players == game.get_alive_players().len() {
-        game.ended = true;
-    }
-
     game.prepare_new_turn();
 }
 
-fn display_home_menu (mut game: &mut GameStatus) {
+fn display_home_menu (game: &mut dyn Game) {
     clear_terminal();
-    if game.debug {
-        run_action_crew_status(&mut game);
+    if game.debug() {
+        run_action_crew_status(game);
     }
     println!("Bienvenue sur le terminal de control du K-141 {}", Color::Bright.color("Koursk"));
     let mut actions_list: Vec<Action> = Vec::new();
@@ -165,27 +159,27 @@ fn display_home_menu (mut game: &mut GameStatus) {
     ));
     match user_select_action(&actions_list) {
         UserAction(_, _) => panic!(""), // Arghhhh, didn't expect to have to do this :/
-        GeneralAction(_, run) => run(&mut game),
+        GeneralAction(_, run) => run(game),
     }
 }
 
-fn run_action_log_in(game: &mut GameStatus) {
+fn run_action_log_in(game: &mut dyn Game) {
     clear_terminal();
     let key = user_non_empty_input("Entrez votre code d'identification:");
     let player_id = game.get_player_id_from_key(key);
     match player_id {
         Some(player_id) => {
-            game.current_player_id = Some(player_id);
+            game.set_current_player_id(Some(player_id));
         }
         None => user_validate("Code invalide, appuyez sur ENTREE pour revenir a l'écran d'accueil."),
     }
 }
 
-fn run_action_crew_status(game: &mut GameStatus) {
+fn run_action_crew_status(game: &mut dyn Game) {
     let mut rng = rand::thread_rng(); // Used to generate random ids for display
     println!("\nStatus de l'équipage:");
     for player in game.get_all_players() {
-        if game.debug {
+        if game.debug() {
             println!("* Membre d'équipage n°{} - {} {}: {}",
                 player.key,
                 player.role,
@@ -212,7 +206,7 @@ fn run_action_crew_status(game: &mut GameStatus) {
     user_validate("");
 }
 
-fn display_player_status_and_actions (mut game_status: &mut GameStatus, current_player_id: PlayerId) {
+fn display_player_status_and_actions (game_status: &mut impl Game, current_player_id: PlayerId) {
     clear_terminal();
     let game: &mut dyn PlayerGame = &mut game_status.get_player_game(current_player_id);
     game.get_mut_current_player().has_connected_today = true;
@@ -260,15 +254,15 @@ fn display_player_status_and_actions (mut game_status: &mut GameStatus, current_
 
     match user_select_action(&actions_list) {
         UserAction(_, run) => run(game),
-        GeneralAction(_, run) => run(&mut game_status),
+        GeneralAction(_, run) => run(game_status),
     }
 }
 
-fn log_out(game: &mut GameStatus) {
-    game.current_player_id = None;
+fn log_out(game: &mut dyn Game) {
+    game.set_current_player_id(None);
 }
 
-fn end_game(game: &GameStatus) {
+fn end_game(game: impl Game) {
     clear_terminal();
 
     let healthy_players = game.get_alive_players().iter().filter(|player| !player.infected).count();

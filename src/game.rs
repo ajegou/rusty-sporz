@@ -7,18 +7,28 @@ use crate::action::ActionType;
 pub struct GameStatus {
   date: u32,
   players: Vec<Player>,
-  pub current_player_id: Option<PlayerId>,
-  pub ended: bool,
-  pub day: bool,
-  pub debug: bool,
+  current_player_id: Option<PlayerId>,
+  debug: bool,
+}
+
+impl GameStatus {
+  pub fn new (players: Vec<Player>, debug: bool) -> GameStatus {
+    GameStatus{
+      players,
+      current_player_id: None,
+      debug,
+      date: 1,
+    }
+  }
 }
 
 pub struct PlayerTurn<'a> {
-  pub game: &'a mut GameStatus,
+  game: &'a mut GameStatus,
   current_player_id: PlayerId,
 }
 
 pub trait Game {
+  fn debug(&self) -> bool;
   fn get_date(&self) -> u32;
   fn get_player_id_from_key(&self, key: String) -> Option<PlayerId>;
   fn get_player(&self, id: PlayerId) -> &Player;
@@ -29,6 +39,11 @@ pub trait Game {
   fn broadcast (&mut self, message: Message);
   fn limited_broadcast(&mut self, message: Message, predicate: &dyn Fn(&&mut &mut Player) -> bool);
   fn get_player_ids(&self, predicate: &dyn Fn(&&&Player) -> bool) -> Vec<PlayerId>;
+  fn prepare_new_turn(&mut self);
+  fn ended(&self) -> bool;
+  fn get_current_player_id(&self) -> Option<PlayerId>;
+  fn set_current_player_id(&mut self, player: Option<PlayerId>);
+  fn get_player_game<'a> (&'a mut self, current_player_id: PlayerId) -> PlayerTurn<'a>;
 }
 
 pub trait PlayerGame: Game {
@@ -39,29 +54,11 @@ pub trait PlayerGame: Game {
   fn set_current_target_p(&mut self, action: &ActionType, target: &Option<&Player>);
 }
 
-impl GameStatus {
-  pub fn new (players: Vec<Player>) -> GameStatus {
-    GameStatus{
-      players,
-      current_player_id: None,
-      day: true,
-      ended: false,
-      debug: false,
-      date: 1,
-    }
-  }
-
-  pub fn prepare_new_turn(&mut self) {
-    self.players.iter_mut().for_each(|player| player.prepare_new_turn());
-    self.date += 1;
-  }
-
-  pub fn get_player_game<'a> (&'a mut self, current_player_id: PlayerId) -> PlayerTurn<'a> {
-    return PlayerTurn{ game: self, current_player_id };
-  }
-}
-
 impl Game for GameStatus {
+  fn debug(&self) -> bool {
+    return self.debug;
+  }
+
   fn get_date(&self) -> u32 {
     return self.date;
   }
@@ -114,6 +111,28 @@ impl Game for GameStatus {
   fn get_player_ids(&self, predicate: &dyn Fn(&&&Player) -> bool) -> Vec<PlayerId> {
     return self.get_alive_players().iter().filter(predicate).map(|player| player.id).collect();
   }
+
+  fn prepare_new_turn(&mut self) {
+    self.players.iter_mut().for_each(|player| player.prepare_new_turn());
+    self.date += 1;
+  }
+
+  fn ended(&self) -> bool {
+    let healthy_players = self.get_alive_players().iter().filter(|player| !player.infected).count();
+    healthy_players == 0 || healthy_players == self.get_alive_players().len()
+  }
+
+  fn get_current_player_id(&self) -> Option<PlayerId> {
+    self.current_player_id
+  }
+
+  fn set_current_player_id(&mut self, player: Option<PlayerId>) {
+    self.current_player_id = player;
+  }
+
+  fn get_player_game<'a> (&'a mut self, current_player_id: PlayerId) -> PlayerTurn<'a> {
+    return PlayerTurn{ game: self, current_player_id };
+  }
 }
 
 impl <'b> PlayerGame for PlayerTurn<'b> {
@@ -140,6 +159,10 @@ impl <'b> PlayerGame for PlayerTurn<'b> {
 }
 
 impl <'b> Game for PlayerTurn<'b> { // Proxy everything to self.game
+  fn debug(&self) -> bool {
+    self.game.debug()
+  }
+
   fn get_date(&self) -> u32 {
     self.game.get_date()
   }
@@ -178,5 +201,25 @@ impl <'b> Game for PlayerTurn<'b> { // Proxy everything to self.game
 
   fn get_player_ids(&self, predicate: &dyn Fn(&&&Player) -> bool) -> Vec<PlayerId> {
     self.game.get_player_ids(predicate)
+  }
+
+  fn prepare_new_turn(&mut self) {
+    self.game.prepare_new_turn()
+  }
+
+  fn ended(&self) -> bool {
+    self.game.ended()
+  }
+
+  fn get_current_player_id(&self) -> Option<PlayerId> {
+    self.game.get_current_player_id()
+  }
+
+  fn set_current_player_id(&mut self, player: Option<PlayerId>) {
+    self.game.set_current_player_id(player)
+  }
+
+  fn get_player_game<'a> (&'a mut self, current_player_id: PlayerId) -> PlayerTurn<'a> {
+    self.game.get_player_game(current_player_id)
   }
 }
