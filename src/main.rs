@@ -7,19 +7,16 @@ mod helper;
 mod phases;
 mod message;
 mod interface;
+mod game_creator;
 use action::{Action, Action::{GeneralAction, UserAction}};
-use interface::{clear_terminal, user_validate, user_ask_and_validate, user_select_target, user_non_empty_input};
+use interface::{clear_terminal, user_validate, user_select_target, user_non_empty_input};
 use phases::{run_elimination_phase, run_it_phase, run_mutants_phase, run_physicians_phase, run_psychologist_phase};
 use std::env;
-use game::{ Game, PlayerGame, GameStatus };
+use game::{ Game, PlayerGame };
 use action::{ActionType, get_header_text, get_menu_text};
 use role::Role;
 use std::error;
-use std::collections::HashMap;
-use std::io::Error;
-use rand::thread_rng;
 use player::{Player, PlayerId};
-use rand::seq::SliceRandom;
 use rand::Rng;
 
 use crate::interface::{user_select_action, colors::Color};
@@ -31,73 +28,10 @@ fn main() -> Result<(), Box<dyn error::Error>> {
     let debug = args.contains(&String::from("--debug"));
     unsafe { DEBUG = debug }; // Shitty, mostly for interface, will do better
 
-    let players_names = get_players_list(debug)?;
-    let number_of_players = u32::try_from(players_names.len()).unwrap();
-    let mut roles = role::get_roles(number_of_players)?;
-    roles.shuffle(&mut thread_rng());
-    let players = create_players(players_names, roles);
-
-    let game = GameStatus::new(players, debug);
+    let game = game_creator::create_game(args)?;
     start_game(game);
 
     return Ok(());
-}
-
-// Consumes both names_to_keys and roles
-fn create_players<'a>(names_to_keys: HashMap<String, String>, mut roles: Vec<Role>) -> Vec<Player> {
-    let mut next_user_id = 0;
-    let mut players: Vec<Player> = Vec::new();
-    for (name, key) in names_to_keys {
-        let role = roles.pop().unwrap();
-        let player = Player::new(next_user_id, key, name, role);
-        players.push(player);
-        next_user_id += 1;
-    }
-    return players;
-}
-
-fn get_players_list(use_debug: bool) -> Result<HashMap<String, String>, Error> {
-    let mut keys: Vec<usize> = (100..1000).collect();
-    if use_debug {
-        keys.reverse(); // Want ids to be 100 101 102 ... in debug
-    } else {
-        keys.shuffle(&mut thread_rng());
-    }
-
-    clear_terminal();
-    let mut players: HashMap<String, String> = HashMap::new();
-    loop {
-        let message = "Enter your name (or enter DONE if no more players):";
-        let input;
-        if use_debug {
-            if players.len() == debug::NAMES.len() {
-                break;
-            }
-            input = Some(debug::NAMES[players.len()].to_string());
-        } else {
-            input = user_ask_and_validate(message)?;
-        }
-        match input {
-            None => println!("Annulation"),
-            Some(name) => {
-                if name == "DONE" {
-                    break;
-                }
-                if players.contains_key(&name) {
-                    println!("Name '{name}' is already in use");
-                } else {
-                    let key = keys.pop().unwrap().to_string();
-                    println!("Your secret key is {key}, do not forget it! You will need it to log-in later");
-                    if !use_debug {
-                        user_validate("");
-                    }
-                    players.insert(name, key);
-                    clear_terminal();
-                }
-            }
-        }
-    }
-    return Ok(players);
 }
 
 fn start_game (mut game: impl Game) {
