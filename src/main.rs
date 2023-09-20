@@ -8,7 +8,7 @@ mod phases;
 mod message;
 mod interface;
 use action::{Action, Action::{GeneralAction, UserAction}};
-use game::{PlayerTurn, MetaGame};
+use game::{MetaGame};
 use interface::Color;
 use phases::{run_elimination_phase, run_it_phase, run_mutants_phase, run_physicians_phase, run_psychologist_phase};
 use std::env;
@@ -24,6 +24,8 @@ use rand::thread_rng;
 use player::{Player, PlayerId};
 use rand::seq::SliceRandom;
 use rand::Rng;
+
+use crate::game::PlayerTurn;
 
 static mut DEBUG: bool = false;
 
@@ -222,7 +224,7 @@ fn run_action_crew_status(game: &mut MetaGame) {
 
 fn display_player_status_and_actions (mut game_status: &mut MetaGame, current_player_id: PlayerId) {
     clear_terminal();
-    let mut game = &mut PlayerTurn::new(&mut game_status.game_data, current_player_id);
+    let mut game: &mut dyn PlayerGame = &mut PlayerTurn::new(&mut game_status.game_data, current_player_id);
     game.get_mut_current_player().has_connected_today = true;
     let player = game.get_current_player();
     let mut actions_list = Vec::new();
@@ -245,29 +247,29 @@ fn display_player_status_and_actions (mut game_status: &mut MetaGame, current_pl
     }
 
     if player.alive {
-        add_action_elimination(&mut game, &mut actions_list);
+        add_action_elimination(game, &mut actions_list);
 
         match game.get_current_player().role {
-            Role::Patient0 => add_action_patient_0(&mut game, &mut actions_list),
-            Role::Psychologist => add_action_psychologist(&mut game, &mut actions_list),
-            Role::Physician => add_action_physician(&mut game, &mut actions_list),
-            Role::Geneticist => add_action_geneticist(&mut game, &mut actions_list),
-            Role::ITEngineer => add_action_it_engineer(&mut game, &mut actions_list),
-            Role::Spy => add_action_spy(&mut game, &mut actions_list),
-            Role::Hacker => add_action_hacker(&mut game, &mut actions_list),
-            Role::Traitor => add_action_traitor(&mut game, &mut actions_list),
-            Role::Astronaut => add_action_astronaut(&mut game, &mut actions_list),
+            Role::Patient0 => add_action_patient_0(game, &mut actions_list),
+            Role::Psychologist => add_action_psychologist(game, &mut actions_list),
+            Role::Physician => add_action_physician(game, &mut actions_list),
+            Role::Geneticist => add_action_geneticist(game, &mut actions_list),
+            Role::ITEngineer => add_action_it_engineer(game, &mut actions_list),
+            Role::Spy => add_action_spy(game, &mut actions_list),
+            Role::Hacker => add_action_hacker(game, &mut actions_list),
+            Role::Traitor => add_action_traitor(game, &mut actions_list),
+            Role::Astronaut => add_action_astronaut(game, &mut actions_list),
         }
 
         if game.get_current_player().infected {
-            add_action_mutant(&mut game, &mut actions_list);
+            add_action_mutant(game, &mut actions_list);
         }
     }
 
     add_exit_action(&mut actions_list);
 
     match user_select_action(&actions_list) {
-        UserAction(_, run) => run(&mut game),
+        UserAction(_, run) => run(game),
         GeneralAction(_, run) => run(&mut game_status),
     }
 }
@@ -296,85 +298,85 @@ fn end_game(game: &MetaGame) {
 }
 // Action for elimination
 
-fn add_action_elimination(game: &mut PlayerTurn, actions_list: &mut Vec<Action>) {
+fn add_action_elimination(game: &mut dyn PlayerGame, actions_list: &mut Vec<Action>) {
     add_target_action(
         game,
         actions_list,
         ActionType::Eliminate,
-        |game: &mut PlayerTurn| run_target_action(game, ActionType::Eliminate),
+        |game: &mut dyn PlayerGame| run_target_action(game, ActionType::Eliminate),
     );
 }
 
 // Actions for mutants
 
-fn add_action_mutant(game: &mut PlayerTurn, actions_list: &mut Vec<Action>) {
+fn add_action_mutant(game: &mut dyn PlayerGame, actions_list: &mut Vec<Action>) {
     add_target_action(
         game,
         actions_list,
         ActionType::Infect,
-        |game: &mut PlayerTurn| run_target_action(game, ActionType::Infect),
+        |game: &mut dyn PlayerGame| run_target_action(game, ActionType::Infect),
     );
     add_target_action(
         game,
         actions_list,
         ActionType::Paralyze,
-        |game: &mut PlayerTurn| run_target_action(game, ActionType::Paralyze),
+        |game: &mut dyn PlayerGame| run_target_action(game, ActionType::Paralyze),
     );
     // add kill
 }
 
 // Actions for roles
 
-fn add_action_patient_0(_game: &mut PlayerTurn, _actions_list: &mut Vec<Action>) {}
+fn add_action_patient_0(_game: &mut dyn PlayerGame, _actions_list: &mut Vec<Action>) {}
 
-fn add_action_psychologist(game: &mut PlayerTurn, actions_list: &mut Vec<Action>) {
+fn add_action_psychologist(game: &mut dyn PlayerGame, actions_list: &mut Vec<Action>) {
     add_target_action(
         game,
         actions_list,
         ActionType::Psychoanalyze,
-        |game: &mut PlayerTurn| run_target_action(game, ActionType::Psychoanalyze),
+        |game: &mut dyn PlayerGame| run_target_action(game, ActionType::Psychoanalyze),
     );
 }
 
-fn add_action_physician(game: &mut PlayerTurn, actions_list: &mut Vec<Action>) {
+fn add_action_physician(game: &mut dyn PlayerGame, actions_list: &mut Vec<Action>) {
     if !game.get_current_player().infected { // An infected physician cannot cure
         add_target_action(
             game,
             actions_list,
             ActionType::Cure,
-            |game: &mut PlayerTurn| run_target_action(game, ActionType::Cure),
+            |game: &mut dyn PlayerGame| run_target_action(game, ActionType::Cure),
         );
     }
 }
 
-fn add_action_geneticist(_game: &mut PlayerTurn, _actions_list: &mut Vec<Action>) {
+fn add_action_geneticist(_game: &mut dyn PlayerGame, _actions_list: &mut Vec<Action>) {
     todo!();
 }
 
-fn add_action_it_engineer(_game: &mut PlayerTurn, _actions_list: &mut Vec<Action>) {}
+fn add_action_it_engineer(_game: &mut dyn PlayerGame, _actions_list: &mut Vec<Action>) {}
 
-fn add_action_spy(game: &mut PlayerTurn, actions_list: &mut Vec<Action>) {
+fn add_action_spy(game: &mut dyn PlayerGame, actions_list: &mut Vec<Action>) {
     add_target_action(
         game,
         actions_list,
         ActionType::Spy,
-        |game: &mut PlayerTurn| run_target_action(game, ActionType::Spy),
+        |game: &mut dyn PlayerGame| run_target_action(game, ActionType::Spy),
     );
 }
 
-fn add_action_hacker(_game: &mut PlayerTurn, _actions_list: &mut Vec<Action>) {
+fn add_action_hacker(_game: &mut dyn PlayerGame, _actions_list: &mut Vec<Action>) {
     todo!();
 }
 
-fn add_action_traitor(_game: &mut PlayerTurn, _actions_list: &mut Vec<Action>) {
+fn add_action_traitor(_game: &mut dyn PlayerGame, _actions_list: &mut Vec<Action>) {
     todo!();
 }
 
-fn add_action_astronaut(_game: &mut PlayerTurn, _actions_list: &mut Vec<Action>) {}
+fn add_action_astronaut(_game: &mut dyn PlayerGame, _actions_list: &mut Vec<Action>) {}
 
 // Actions helpers
 
-fn add_target_action(game: &mut PlayerTurn, actions_list: &mut Vec<Action>, action: ActionType, run: fn(&mut PlayerTurn)) {
+fn add_target_action(game: &mut dyn PlayerGame, actions_list: &mut Vec<Action>, action: ActionType, run: fn(&mut dyn PlayerGame)) {
     // It's a bit annoying to have to take "run" here, but closures using the scope seem to be a bit trickier
     actions_list.push(UserAction(
         match game.get_current_target(&action) {
@@ -385,7 +387,7 @@ fn add_target_action(game: &mut PlayerTurn, actions_list: &mut Vec<Action>, acti
     ));
 }
 
-fn run_target_action(game: &mut PlayerTurn, action: ActionType) {
+fn run_target_action(game: &mut dyn PlayerGame, action: ActionType) {
     clear_terminal();
     match game.get_current_target(&action) {
         Some(target) => println!("{} [{}]", get_header_text(action), target.name),

@@ -19,7 +19,7 @@ pub fn run_mutants_phase(game: &mut GameStatus) {
         date: current_date,
         source: String::from("Overmind"),
         content: String::from(format!("Lors du dernier crépuscule, les mutant·e·s étaient: [{mutants_names}]")),
-    }, |player: &&mut &mut Player| player.infected);
+    }, & |player: &&mut &mut Player| player.infected);
 
     // Mutate one player
     let mutate_results = compute_votes_winner(
@@ -31,7 +31,7 @@ pub fn run_mutants_phase(game: &mut GameStatus) {
             date: current_date,
             source: String::from("Overmind"),
             content: String::from(format!("Félicitations, cette nuit vous êtes parvenus à infecter: {mutatee_name}")),
-        }, |player: &&mut &mut Player| player.infected);
+        }, & |player: &&mut &mut Player| player.infected);
         let mutate_winner = game.get_mut_player(player_id);
         mutate_winner.infected = true;
         mutate_winner.send_message(Message { // Notify the new mutant that he was infected
@@ -180,7 +180,7 @@ pub fn run_it_phase(game: &mut GameStatus) {
 
 pub fn run_psychologist_phase(game: &mut GameStatus) {
   let current_date = game.get_date(); // do better
-  let psychologists_ids = game.get_player_ids(|player| player.role == Role::Psychologist);
+  let psychologists_ids = game.get_player_ids(&|player| player.role == Role::Psychologist);
   for psychologists_id in psychologists_ids {
     if !game.get_player(psychologists_id).paralyzed {
       if let Some(target) = game.get_player(psychologists_id).get_target(&ActionType::Psychoanalyze) {

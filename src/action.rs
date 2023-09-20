@@ -1,7 +1,7 @@
-use crate::game::{PlayerTurn, MetaGame};
+use crate::game::{PlayerGame, MetaGame};
 
 pub enum Action {
-  UserAction(String, fn (&mut PlayerTurn)),
+  UserAction(String, fn (&mut dyn PlayerGame)),
   GeneralAction(String, fn (&mut MetaGame)),
 }
 

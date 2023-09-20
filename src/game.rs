@@ -33,8 +33,8 @@ pub trait Game {
   fn get_alive_players(&self) -> Vec<&Player>;
   fn get_mut_alive_players(&mut self) -> Vec<&mut Player>;
   fn broadcast (&mut self, message: Message);
-  fn limited_broadcast<P>(&mut self, message: Message, predicate: P) where P: FnMut(&&mut &mut Player) -> bool;
-  fn get_player_ids<P>(&self, predicate: P) -> Vec<PlayerId> where P: FnMut(&&&Player) -> bool;
+  fn limited_broadcast(&mut self, message: Message, predicate: &dyn Fn(&&mut &mut Player) -> bool);
+  fn get_player_ids(&self, predicate: &dyn Fn(&&&Player) -> bool) -> Vec<PlayerId>;
 }
 
 pub trait PlayerGame: Game {
@@ -116,19 +116,13 @@ impl Game for GameStatus {
     }
   }
 
-  fn limited_broadcast<P>(&mut self, message: Message, predicate: P)
-  where
-    P: FnMut(&&mut &mut Player) -> bool,
-  {
+  fn limited_broadcast(&mut self, message: Message, predicate: &dyn Fn(&&mut &mut Player) -> bool) {
     for player in self.get_mut_alive_players().iter_mut().filter(predicate) {
       player.send_message(message.clone());
     }
   }
 
-  fn get_player_ids<P>(&self, predicate: P) -> Vec<PlayerId>
-  where
-    P: FnMut(&&&Player) -> bool,
-  {
+  fn get_player_ids(&self, predicate: &dyn Fn(&&&Player) -> bool) -> Vec<PlayerId> {
     return self.get_alive_players().iter().filter(predicate).map(|player| player.id).collect();
   }
 }
@@ -189,17 +183,11 @@ impl <'b> Game for PlayerTurn<'b> { // Proxy everything to self.game
     self.game.broadcast(message)
   }
 
-  fn limited_broadcast<P>(&mut self, message: Message, predicate: P) 
-  where
-    P: FnMut(&&mut &mut Player) -> bool,
-  {
+  fn limited_broadcast(&mut self, message: Message, predicate: &dyn Fn(&&mut &mut Player) -> bool) {
     self.game.limited_broadcast(message, predicate)
   }
 
-  fn get_player_ids<P>(&self, predicate: P) -> Vec<PlayerId>
-  where
-    P: FnMut(&&&Player) -> bool,
-  {
+  fn get_player_ids(&self, predicate: &dyn Fn(&&&Player) -> bool) -> Vec<PlayerId> {
     self.game.get_player_ids(predicate)
   }
 }
