@@ -6,24 +6,23 @@ use rand::thread_rng;
 use rand::seq::SliceRandom;
 
 use crate::game::GameStatus;
-use crate::interface::clear_terminal;
-use crate::interface::user_non_empty_input;
-use crate::interface::user_select;
-use crate::interface::user_validate;
+use crate::interface::Interface;
 use crate::player::Player;
 use crate::role::Role;
 
 struct GameCreator {
   debug: bool,
+  interface: Interface,
   id_keys: Vec<String>,
   player_names: HashMap<String, String>,
   custom_roles: Option<Vec<Role>>,
 }
 
 impl GameCreator {
-  pub fn new (debug: bool) -> GameCreator {
+  pub fn new (interface: Interface, debug: bool) -> GameCreator {
     GameCreator {
       debug,
+      interface,
       id_keys: generaye_keys(debug),
       player_names: HashMap::new(),
       custom_roles: None,
@@ -32,7 +31,7 @@ impl GameCreator {
   
   pub fn add_player (&mut self) {
     let name = loop {
-      let name = user_non_empty_input("Sous quel dénominatif souhaitez-vous être identifié·e?");
+      let name = self.interface.user_non_empty_input("Sous quel dénominatif souhaitez-vous être identifié·e?");
       if self.player_names.contains_key(&name) {
         println!("Désolé, ce dénominatif n'est pas disponible");
         continue;
@@ -42,17 +41,17 @@ impl GameCreator {
     let key = self.id_keys.pop().unwrap().to_string();
     println!("{name}, votre code secret est: '{key}', ne l'oubliez pas! Vous en aurez besoin pour vous identifier.");
     if !self.debug {
-        user_validate("");
+      self.interface.user_validate("");
     }
     self.player_names.insert(name, key);
   }
 
   pub fn remove_player (&mut self) {
     if self.player_names.len() == 0 {
-      user_validate("Désolé, il n'y a aucun membre d'équipage à supprimer");
-      clear_terminal();
+      self.interface.user_validate("Désolé, il n'y a aucun membre d'équipage à supprimer");
+      self.interface.clear_terminal();
     } else {
-      let selected = user_select(self.player_names.keys());
+      let selected = self.interface.user_select(self.player_names.keys());
       let key = self.player_names.remove(&selected.clone());
       self.id_keys.push(key.unwrap()); // The key cannot not be there
     }
@@ -76,12 +75,12 @@ impl GameCreator {
 
   pub fn can_create_game (&mut self) -> bool {
     if self.player_names.len() < 7 {
-      user_validate("Désolé, il vous faut au moins 7 joueurs pour jouer");
+      self.interface.user_validate("Désolé, il vous faut au moins 7 joueurs pour jouer");
       return false;
     }
     if let Some(roles) = &self.custom_roles {
       if self.player_names.len() != roles.len() {
-        user_validate(format!("Le nombre de roles ({}) doit correspondre au nombre de joueurs ({})", roles.len(), self.player_names.len()).as_str());
+        self.interface.user_validate(format!("Le nombre de roles ({}) doit correspondre au nombre de joueurs ({})", roles.len(), self.player_names.len()).as_str());
         return false;
       }
     }
@@ -102,13 +101,13 @@ impl GameCreator {
         players.push(player);
         next_user_id += 1;
     }
-    Ok(GameStatus::new(players, self.debug))
+    Ok(GameStatus::new(players, self.interface, self.debug))
   }
 }
 
-pub fn create_game (args: Vec<String>) -> Result<GameStatus, Box<dyn error::Error>> {
+pub fn create_game (interface: Interface, args: Vec<String>) -> Result<GameStatus, Box<dyn error::Error>> {
   let debug = args.contains(&String::from("--debug"));
-  let mut game_creator = GameCreator::new(debug);
+  let mut game_creator = GameCreator::new(interface, debug);
 
   enum Options {
     AddPlayer,
@@ -127,12 +126,12 @@ pub fn create_game (args: Vec<String>) -> Result<GameStatus, Box<dyn error::Erro
   }
 
   loop {
-    clear_terminal();
+    game_creator.interface.clear_terminal();
     let names = game_creator.player_names.keys().map(|name| name.clone()).collect::<Vec<String>>().join(", ");
     println!("Liste des membres d'équipage actifs: [{names}]");
     println!("Que souhaitez vous faire?");
     
-    match user_select(vec![Options::AddPlayer, Options::RemovePlayer, Options::StartGame].iter()) {
+    match game_creator.interface.user_select(vec![Options::AddPlayer, Options::RemovePlayer, Options::StartGame].iter()) {
       Options::AddPlayer => game_creator.add_player(),
       Options::RemovePlayer => game_creator.remove_player(),
       Options::StartGame => {

@@ -9,7 +9,6 @@ mod message;
 mod interface;
 mod game_creator;
 use action::{Action, Action::{GeneralAction, UserAction}};
-use interface::{clear_terminal, user_validate, user_select_target, user_non_empty_input};
 use phases::{run_elimination_phase, run_it_phase, run_mutants_phase, run_physicians_phase, run_psychologist_phase};
 use std::env;
 use game::{ Game, PlayerGame };
@@ -19,7 +18,7 @@ use std::error;
 use player::{Player, PlayerId};
 use rand::Rng;
 
-use crate::interface::{user_select_action, colors::Color};
+use crate::interface::{Interface, colors::Color};
 
 pub static mut DEBUG: bool = false;
 
@@ -28,7 +27,8 @@ fn main() -> Result<(), Box<dyn error::Error>> {
     let debug = args.contains(&String::from("--debug"));
     unsafe { DEBUG = debug }; // Shitty, mostly for interface, will do better
 
-    let game = game_creator::create_game(args)?;
+    let interface = Interface::new(debug);
+    let game = game_creator::create_game(interface, args)?;
     start_game(game);
 
     return Ok(());
@@ -58,7 +58,7 @@ fn run_night(game: &mut dyn Game) {
             .filter_map(|player| if player.has_connected_today { None } else { Some(&player.name) })
             .collect::<Vec<&String>>();
         if missing_players.len() > 0 {
-            user_validate(format!("J'exige la visite des membres d'équipages {:?} avant l'extinction des feux", missing_players).as_str());
+            game.interface().user_validate(format!("J'exige la visite des membres d'équipages {:?} avant l'extinction des feux", missing_players).as_str());
             return;
         }
     }
@@ -73,7 +73,7 @@ fn run_night(game: &mut dyn Game) {
 }
 
 fn display_home_menu (game: &mut dyn Game) {
-    clear_terminal();
+    game.interface().clear_terminal();
     if game.debug() {
         run_action_crew_status(game);
     }
@@ -91,21 +91,21 @@ fn display_home_menu (game: &mut dyn Game) {
         String::from("Fin de la journée"),
         run_night,
     ));
-    match user_select_action(&actions_list) {
+    match game.interface().user_select_action(&actions_list) {
         UserAction(_, _) => panic!(""), // Arghhhh, didn't expect to have to do this :/
         GeneralAction(_, run) => run(game),
     }
 }
 
 fn run_action_log_in(game: &mut dyn Game) {
-    clear_terminal();
-    let key = user_non_empty_input("Entrez votre code d'identification:");
+    game.interface().clear_terminal();
+    let key = game.interface().user_non_empty_input("Entrez votre code d'identification:");
     let player_id = game.get_player_id_from_key(key);
     match player_id {
         Some(player_id) => {
             game.set_current_player_id(Some(player_id));
         }
-        None => user_validate("Code invalide, appuyez sur ENTREE pour revenir a l'écran d'accueil."),
+        None => game.interface().user_validate("Code invalide, appuyez sur ENTREE pour revenir a l'écran d'accueil."),
     }
 }
 
@@ -137,11 +137,11 @@ fn run_action_crew_status(game: &mut dyn Game) {
 
         }
     }
-    user_validate("");
+    game.interface().user_validate("");
 }
 
 fn display_player_status_and_actions (game_status: &mut impl Game, current_player_id: PlayerId) {
-    clear_terminal();
+    game_status.interface().clear_terminal();
     let game: &mut dyn PlayerGame = &mut game_status.get_player_game(current_player_id);
     game.get_mut_current_player().has_connected_today = true;
     let player = game.get_current_player();
@@ -186,7 +186,7 @@ fn display_player_status_and_actions (game_status: &mut impl Game, current_playe
 
     add_exit_action(&mut actions_list);
 
-    match user_select_action(&actions_list) {
+    match game.interface().user_select_action(&actions_list) {
         UserAction(_, run) => run(game),
         GeneralAction(_, run) => run(game_status),
     }
@@ -197,7 +197,7 @@ fn log_out(game: &mut dyn Game) {
 }
 
 fn end_game(game: impl Game) {
-    clear_terminal();
+    game.interface().clear_terminal();
 
     let healthy_players = game.get_alive_players().iter().filter(|player| !player.infected).count();
     if healthy_players == 0 {
@@ -306,13 +306,13 @@ fn add_target_action(game: &mut dyn PlayerGame, actions_list: &mut Vec<Action>, 
 }
 
 fn run_target_action(game: &mut dyn PlayerGame, action: ActionType) {
-    clear_terminal();
+    game.interface().clear_terminal();
     match game.get_current_target(&action) {
         Some(target) => println!("{} [{}]", get_header_text(action), target.name),
         None => println!("{}", get_header_text(action)),
     }
     let targets: Vec<&Player> = game.get_alive_players();
-    let selected = user_select_target(&targets);
+    let selected = game.interface().user_select_target(&targets);
     game.set_current_target(&action, selected.map(|player| player.id));
 }
 
