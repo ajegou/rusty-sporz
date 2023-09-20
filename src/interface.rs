@@ -1,69 +1,99 @@
-const COLORS_ENABLED: bool = true;
+use std::io;
+use std::io::Write;
 
-#[allow(dead_code)]
-pub enum Color {
-  Reset,
-  Bright,
-  Dim,
-  Underscore,
-  Blink,
-  Reverse,
-  Hidden,
+use crate::{player::Player, action::Action, action::Action::{UserAction, GeneralAction}, DEBUG};
 
-  FgBlack,
-  FgRed,
-  FgGreen,
-  FgYellow,
-  FgBlue,
-  FgMagenta,
-  FgCyan,
-  FgWhite,
+pub mod colors;
 
-  BgBlack,
-  BgRed,
-  BgGreen,
-  BgYellow,
-  BgBlue,
-  BgMagenta,
-  BgCyan,
-  BgWhite,
+pub fn user_select_target<'a>(targets_list: &'a Vec<&'a Player>) -> Option<&'a Player> {
+  for (idx, target) in targets_list.iter().enumerate() {
+      println!("{idx}) {}", target.name);
+  }
+  println!("{}) {}", targets_list.len(), "Aucun");
+  let accepted_answers: Vec<String> = (0..targets_list.len() + 1)
+      .map(|value| { value.to_string() })
+      .collect();
+  let choice: usize = user_choice("Quel est votre choix?", accepted_answers).parse().unwrap();
+  if choice == targets_list.len() {
+      return None;
+  }
+  return Some(targets_list[choice]);
 }
 
-impl Color {
-  pub fn color(&self, text: &str) -> String {
-    if COLORS_ENABLED {
-      return format!("{}{}{}", self.get_characters(), text, Color::Reset.get_characters());
-    } else {
-      return String::from(text);
-    }
+pub fn user_select_action<'a>(actions_list: &'a Vec<Action>) -> &'a Action {
+  for (idx, action) in actions_list.iter().enumerate() {
+      match action { // Hmmm... weird...
+          UserAction(description, _) => println!("{idx}) {}", description),
+          GeneralAction(description, _) => println!("{idx}) {}", description),
+      }
   }
-  fn get_characters(&self) -> &str {
-    match self {
-      Color::Reset => "\x1b[0m",
-      Color::Bright => "\x1b[1m",
-      Color::Dim => "\x1b[2m",
-      Color::Underscore => "\x1b[4m",
-      Color::Blink => "\x1b[5m",
-      Color::Reverse => "\x1b[7m",
-      Color::Hidden => "\x1b[8m",
-    
-      Color::FgBlack => "\x1b[30m",
-      Color::FgRed => "\x1b[31m",
-      Color::FgGreen => "\x1b[32m",
-      Color::FgYellow => "\x1b[33m",
-      Color::FgBlue => "\x1b[34m",
-      Color::FgMagenta => "\x1b[35m",
-      Color::FgCyan => "\x1b[36m",
-      Color::FgWhite => "\x1b[37m",
-    
-      Color::BgBlack => "\x1b[40m",
-      Color::BgRed => "\x1b[41m",
-      Color::BgGreen => "\x1b[42m",
-      Color::BgYellow => "\x1b[43m",
-      Color::BgBlue => "\x1b[44m",
-      Color::BgMagenta => "\x1b[45m",
-      Color::BgCyan => "\x1b[46m",
-      Color::BgWhite => "\x1b[47m",
-    }
+  let accepted_answers: Vec<String> = (0..actions_list.len())
+      .map(|value| { value.to_string() })
+      .collect();
+  let choice: usize = user_choice("Quel est votre choix?", accepted_answers).parse().unwrap();
+  return &actions_list[choice];
+}
+
+fn user_choice(message: &str, accepted_answers: Vec<String>) -> String {
+  println!();
+  loop {
+      let mut input = String::new();
+      print!("{message} ");
+      io::stdout().flush().unwrap();
+      io::stdin().read_line(&mut input).unwrap();
+      input = input.trim().to_string();
+      if accepted_answers.contains(&input) {
+          return input;
+      }
+  }
+}
+
+pub fn user_validate(message: &str) {
+  print!("{message} ");
+  io::stdout().flush().unwrap();
+  io::stdin().read_line(&mut String::new()).unwrap();
+}
+
+pub fn user_non_empty_input(message: &str) -> String {
+  loop {
+      let mut input = String::new();
+      print!("{message} ");
+      io::stdout().flush().unwrap();
+      io::stdin().read_line(&mut input).unwrap();
+      input = input.trim().to_string();
+      if input.len() > 0 {
+          return input;
+      }
+  }
+}
+
+pub fn user_ask_and_validate(message: &str) -> Result<Option<String>, io::Error> {
+  let mut input = String::new();
+
+  while input.len() == 0 {
+      print!("{message} ");
+      io::stdout().flush()?;
+      io::stdin().read_line(&mut input)?;
+      input = input.trim().to_string();
+  }
+
+  print!("Your entered '{input}', type 'y' to validate: ");
+  io::stdout().flush()?;
+
+  let mut validation = String::new();
+  io::stdin().read_line(&mut validation)?;
+  validation = validation.trim().to_string();
+
+  if validation == "y" {
+      return Ok(Some(input));
+  }
+  return Ok(None);
+}
+
+pub fn clear_terminal() {
+  if unsafe { DEBUG } { // do better
+      print!("\n\n\n");
+  } else {
+      print!("{}[2J", 27 as char);
   }
 }

@@ -8,7 +8,7 @@ mod phases;
 mod message;
 mod interface;
 use action::{Action, Action::{GeneralAction, UserAction}};
-use interface::Color;
+use interface::{clear_terminal, user_validate, user_ask_and_validate, user_select_target, user_non_empty_input};
 use phases::{run_elimination_phase, run_it_phase, run_mutants_phase, run_physicians_phase, run_psychologist_phase};
 use std::env;
 use game::{ Game, PlayerGame, GameStatus };
@@ -16,15 +16,15 @@ use action::{ActionType, get_header_text, get_menu_text};
 use role::Role;
 use std::error;
 use std::collections::HashMap;
-use std::io;
-use std::io::Write;
 use std::io::Error;
 use rand::thread_rng;
 use player::{Player, PlayerId};
 use rand::seq::SliceRandom;
 use rand::Rng;
 
-static mut DEBUG: bool = false;
+use crate::interface::{user_select_action, colors::Color};
+
+pub static mut DEBUG: bool = false;
 
 fn main() -> Result<(), Box<dyn error::Error>> {
     let args: Vec<String> = env::args().collect();
@@ -386,97 +386,4 @@ fn run_target_action(game: &mut dyn PlayerGame, action: ActionType) {
 
 fn add_exit_action(actions_list: &mut Vec<Action>) {
     actions_list.push(GeneralAction(String::from("Déconnection"), log_out ));
-}
-
-fn user_select_target<'a>(targets_list: &'a Vec<&'a Player>) -> Option<&'a Player> {
-    for (idx, target) in targets_list.iter().enumerate() {
-        println!("{idx}) {}", target.name);
-    }
-    println!("{}) {}", targets_list.len(), "Aucun");
-    let accepted_answers: Vec<String> = (0..targets_list.len() + 1)
-        .map(|value| { value.to_string() })
-        .collect();
-    let choice: usize = user_choice("Quel est votre choix?", accepted_answers).parse().unwrap();
-    if choice == targets_list.len() {
-        return None;
-    }
-    return Some(targets_list[choice]);
-}
-
-fn user_select_action<'a>(actions_list: &'a Vec<Action>) -> &'a Action {
-    for (idx, action) in actions_list.iter().enumerate() {
-        match action { // Hmmm... weird...
-            UserAction(description, _) => println!("{idx}) {}", description),
-            GeneralAction(description, _) => println!("{idx}) {}", description),
-        }
-    }
-    let accepted_answers: Vec<String> = (0..actions_list.len())
-        .map(|value| { value.to_string() })
-        .collect();
-    let choice: usize = user_choice("Quel est votre choix?", accepted_answers).parse().unwrap();
-    return &actions_list[choice];
-}
-
-fn user_choice(message: &str, accepted_answers: Vec<String>) -> String {
-    println!();
-    loop {
-        let mut input = String::new();
-        print!("{message} ");
-        io::stdout().flush().unwrap();
-        io::stdin().read_line(&mut input).unwrap();
-        input = input.trim().to_string();
-        if accepted_answers.contains(&input) {
-            return input;
-        }
-    }
-}
-
-fn user_validate(message: &str) {
-    print!("{message} ");
-    io::stdout().flush().unwrap();
-    io::stdin().read_line(&mut String::new()).unwrap();
-}
-
-fn user_non_empty_input(message: &str) -> String {
-    loop {
-        let mut input = String::new();
-        print!("{message} ");
-        io::stdout().flush().unwrap();
-        io::stdin().read_line(&mut input).unwrap();
-        input = input.trim().to_string();
-        if input.len() > 0 {
-            return input;
-        }
-    }
-}
-
-fn user_ask_and_validate(message: &str) -> Result<Option<String>, io::Error> {
-    let mut input = String::new();
-
-    while input.len() == 0 {
-        print!("{message} ");
-        io::stdout().flush()?;
-        io::stdin().read_line(&mut input)?;
-        input = input.trim().to_string();
-    }
-
-    print!("Your entered '{input}', type 'y' to validate: ");
-    io::stdout().flush()?;
-
-    let mut validation = String::new();
-    io::stdin().read_line(&mut validation)?;
-    validation = validation.trim().to_string();
-
-    if validation == "y" {
-        return Ok(Some(input));
-    }
-    return Ok(None);
-}
-
-fn clear_terminal() {
-    if unsafe { DEBUG } { // do better
-        print!("\n\n\n");
-    } else {
-        print!("{}[2J", 27 as char);
-    }
 }
