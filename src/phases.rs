@@ -7,6 +7,45 @@ use crate::{
   player::Player};
 
 
+pub fn run_elimination_phase(game: &mut dyn Game) {
+  let current_date = game.get_date(); // do better
+
+  // Check votes to eliminate a player
+  let elimination_results = compute_votes_results(
+    game.get_alive_players().iter(),
+    ActionType::Eliminate);
+  let death_threshold = game.get_alive_players().len() / 2;
+  for (target, votes) in elimination_results.iter() {
+    if *votes > death_threshold {
+      let player = game.get_mut_player(*target);
+      player.alive = false;
+      player.death_cause = Some(String::from("Aspiré·e accidentellement par le sas tribord"));
+      
+      let who_died = format!("Conformément à la volonté populaire, {} à été retiré du service actif.", player.name);
+      let who_he_was;
+      if player.infected {
+        let role = if player.role == Role::Patient0 { &Role::Astronaut } else { &player.role }; // Patient0's is not revealed on death
+        who_he_was = format!("L'autopsie à révélée que {} était en réalité un·e {} mutant·e!", player.name, role);
+      } else {
+        who_he_was = format!("{} était un·e honnête {} dévoué à la mission.", player.name, player.role);
+      }
+      let comment = "Vous pouvez lui dire adieu par le hublot tribord.";
+      game.broadcast(Message {
+        date: current_date,
+        source: String::from("Ordinateur Central"),
+        content: format!("{} {} {}", who_died, who_he_was, comment),
+      })
+    } else {
+      let player = game.get_mut_player(*target);
+      player.send_message(Message {
+        date: current_date,
+        source: String::from("Ordinateur Central"),
+        content: format!("Cette nuit, {votes} membres d'équipages ont tenté de vous éliminer."),
+      });
+    }
+  }
+}
+
 pub fn run_mutants_phase(game: &mut dyn Game) {
   let current_date = game.get_date(); // do better
 
@@ -120,45 +159,6 @@ pub fn run_physicians_phase(game: &mut dyn Game) {
       source: String::from("Équipe médicale"),
       content: String::from(format!("L'équipe médicale opérationelle de la nuit précédente ({}) est parvenue à soigner: [{}]", active_physician_names, cured_players_names)),
     });
-  }
-}
-
-pub fn run_elimination_phase(game: &mut dyn Game) {
-  let current_date = game.get_date(); // do better
-
-  // Check votes to eliminate a player
-  let elimination_results = compute_votes_results(
-    game.get_alive_players().iter(),
-    ActionType::Eliminate);
-  let death_threshold = game.get_alive_players().len() / 2;
-  for (target, votes) in elimination_results.iter() {
-    if *votes > death_threshold {
-      let player = game.get_mut_player(*target);
-      player.alive = false;
-      player.death_cause = Some(String::from("Aspiré·e accidentellement par le sas tribord"));
-      
-      let who_died = format!("Conformément à la volonté populaire, {} à été retiré du service actif.", player.name);
-      let who_he_was;
-      if player.infected {
-        let role = if player.role == Role::Patient0 { &Role::Astronaut } else { &player.role }; // Patient0's is not revealed on death
-        who_he_was = format!("L'autopsie à révélée que {} était en réalité un·e {} mutant·e!", player.name, role);
-      } else {
-        who_he_was = format!("{} était un·e honnête {} dévoué à la mission.", player.name, player.role);
-      }
-      let comment = "Vous pouvez lui dire adieu par le hublot tribord.";
-      game.broadcast(Message {
-        date: current_date,
-        source: String::from("Ordinateur Central"),
-        content: format!("{} {} {}", who_died, who_he_was, comment),
-      })
-    } else {
-      let player = game.get_mut_player(*target);
-      player.send_message(Message {
-        date: current_date,
-        source: String::from("Ordinateur Central"),
-        content: format!("Cette nuit, {votes} membres d'équipages ont tenté de vous éliminer."),
-      });
-    }
   }
 }
 
