@@ -16,6 +16,7 @@ struct GameCreator<'a> {
   id_keys: Vec<String>,
   player_names: BTreeMap<String, String>, // want a sorted map for simpler debug
   custom_roles: Option<Vec<Role>>,
+  ship_name: Option<String>,
 }
 
 impl <'a> GameCreator<'a> {
@@ -26,7 +27,13 @@ impl <'a> GameCreator<'a> {
       id_keys: generaye_keys(debug),
       player_names: BTreeMap::new(),
       custom_roles: None,
+      ship_name: None,
     }
+  }
+  
+  pub fn name_ship (&mut self) {
+    let name = self.interface.user_non_empty_input("Quel est le nom de votre vaisseau?");
+    self.ship_name = Some(name);
   }
   
   pub fn add_player (&mut self) {
@@ -73,6 +80,10 @@ impl <'a> GameCreator<'a> {
   }
 
   pub fn can_create_game (&mut self) -> bool {
+    if self.ship_name == None {
+      self.interface.user_validate("Vous devez donner un nom à votre vaisseau");
+      return false;
+    }
     if self.player_names.len() < 7 {
       self.interface.user_validate("Désolé, il vous faut au moins 7 joueurs pour jouer");
       return false;
@@ -100,7 +111,7 @@ impl <'a> GameCreator<'a> {
       players.push(player);
       next_user_id += 1;
     }
-    Ok(GameStatus::new(players, self.debug))
+    Ok(GameStatus::new(self.ship_name.unwrap(), players, self.debug))
   }
 }
 
@@ -108,6 +119,7 @@ pub fn create_game (interface: &mut Interface, debug: bool) -> Result<GameStatus
   let mut game_creator = GameCreator::new(interface, debug);
 
   enum Options {
+    NameShip,
     AddPlayer,
     RemovePlayer,
     StartGame,
@@ -115,6 +127,7 @@ pub fn create_game (interface: &mut Interface, debug: bool) -> Result<GameStatus
   impl fmt::Display for Options {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
       match self {
+        Options::NameShip => write!(f, "Nommer votre vaisseau")?,
         Options::AddPlayer => write!(f, "Ajouter un membre d'équipage")?,
         Options::RemovePlayer => write!(f, "Supprimer un membre d'équipage")?,
         Options::StartGame => write!(f, "Commencer la partie")?,
@@ -129,7 +142,8 @@ pub fn create_game (interface: &mut Interface, debug: bool) -> Result<GameStatus
     println!("Liste des membres d'équipage actifs: [{names}]");
     println!("Que souhaitez vous faire?");
     
-    match game_creator.interface.user_select_from(vec![Options::AddPlayer, Options::RemovePlayer, Options::StartGame].iter()) {
+    match game_creator.interface.user_select_from(vec![Options::NameShip, Options::AddPlayer, Options::RemovePlayer, Options::StartGame].iter()) {
+      Options::NameShip => game_creator.name_ship(),
       Options::AddPlayer => game_creator.add_player(),
       Options::RemovePlayer => game_creator.remove_player(),
       Options::StartGame => {

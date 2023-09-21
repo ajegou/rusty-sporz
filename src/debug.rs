@@ -15,12 +15,14 @@ pub static DEBUG_PLAYER_NAMES: [&str; 9] = [
 
 pub fn mock_game_creator (interface: &mut Interface) {
   let mut inputs = Vec::new();
+  inputs.push(String::from("1\n"));
+  inputs.push(String::from("Koursk\n"));
   for name in DEBUG_PLAYER_NAMES {
-    inputs.push(String::from("1\n"));
+    inputs.push(String::from("2\n"));
     inputs.push(format!("{name}\n"));
     inputs.push(String::from(""));
   }
-  inputs.push(String::from("3\n"));
+  inputs.push(String::from("4\n"));
   interface.mock(inputs);
 }
 

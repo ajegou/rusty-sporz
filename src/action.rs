@@ -1,3 +1,4 @@
+use serde::{Serialize, Deserialize};
 use crate::{game::{PlayerGame, Game}, interface::Interface};
 
 pub enum Action {
@@ -5,7 +6,7 @@ pub enum Action {
   GeneralAction(String, fn (&mut dyn Game, &mut Interface)),
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
+#[derive(Debug, PartialEq, Eq, Hash, Copy, Clone, Serialize, Deserialize)]
 pub enum ActionType {
   Eliminate,
   Infect,

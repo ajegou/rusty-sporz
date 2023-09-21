@@ -1,5 +1,6 @@
+use serde::{Serialize, Deserialize};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Message {
   pub date: u32,
   pub source: String,

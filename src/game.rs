@@ -1,10 +1,19 @@
 use std::slice::Iter;
+use std::error;
+use std::time::SystemTime;
 
+use serde::{Serialize, Deserialize};
+
+use crate::backup::{backup_game, restore_game};
 use crate::message::Message;
 use crate::player::{Player, PlayerId};
 use crate::action::ActionType;
 
+#[derive(Serialize, Deserialize)]
 pub struct GameStatus {
+  #[serde(skip_deserializing)]
+  creation: u64, // this is to avoid collisions after loading a backup, so we want it unique
+  name: String,
   date: u32,
   players: Vec<Player>,
   current_player_id: Option<PlayerId>,
@@ -12,13 +21,21 @@ pub struct GameStatus {
 }
 
 impl GameStatus {
-  pub fn new (players: Vec<Player>, debug: bool) -> GameStatus {
+  pub fn new (name: String, players: Vec<Player>, debug: bool) -> GameStatus {
     GameStatus{
+      creation: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs(),
+      name,
       players,
       current_player_id: None,
       debug,
       date: 1,
     }
+  }
+
+  pub fn restore_from_backup (path: &String) -> Result<GameStatus, Box<dyn error::Error>> {
+    let mut game = restore_game(path)?;
+    game.creation = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs();
+    return Ok(game);
   }
 }
 
@@ -29,6 +46,8 @@ pub struct PlayerTurn<'a> {
 
 pub trait Game {
   fn debug(&self) -> bool;
+  fn backup(&self, path: &str) -> Result<(), Box<dyn error::Error>>;
+  fn get_name(&self) -> &str;
   fn get_date(&self) -> u32;
   fn get_player_id_from_key(&self, key: String) -> Option<PlayerId>;
   fn get_player(&self, id: PlayerId) -> &Player;
@@ -57,6 +76,14 @@ pub trait PlayerGame: Game {
 impl Game for GameStatus {
   fn debug(&self) -> bool {
     return self.debug;
+  }
+
+  fn backup(&self, path: &str) -> Result<(), Box<dyn error::Error>> {
+    return backup_game(self, format!("{path}sporz-{}-{}-day-{}", &self.name, &self.creation, &self.date));
+  }
+
+  fn get_name(&self) -> &str {
+    return self.name.as_str();
   }
 
   fn get_date(&self) -> u32 {
@@ -161,6 +188,14 @@ impl <'b> PlayerGame for PlayerTurn<'b> {
 impl <'b> Game for PlayerTurn<'b> { // Proxy everything to self.game
   fn debug(&self) -> bool {
     self.game.debug()
+  }
+
+  fn backup(&self, path: &str) -> Result<(), Box<dyn error::Error>> {
+    self.game.backup(path)
+  }
+
+  fn get_name(&self) -> &str {
+    self.game.get_name()
   }
 
   fn get_date(&self) -> u32 {

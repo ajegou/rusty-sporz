@@ -1,10 +1,12 @@
 use std::collections::HashMap;
 
+use serde::{Serialize, Deserialize};
+
 use crate::role::Role;
 use crate::message::Message;
 use crate::action::ActionType;
 
-#[derive(Debug, Eq, Hash, Clone, Copy)]
+#[derive(Debug, Eq, Hash, Clone, Copy, Serialize, Deserialize)]
 pub struct PlayerId {
   id: usize,
 }
@@ -24,7 +26,7 @@ impl PlayerId {
   }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Player {
   pub id: PlayerId,
   pub key: String,

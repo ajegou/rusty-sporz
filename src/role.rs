@@ -1,7 +1,8 @@
 use std::fmt;
+use serde::{Serialize, Deserialize};
 
 #[allow(dead_code)]
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Serialize, Deserialize)]
 pub enum Role {
   Patient0,
   Psychologist,

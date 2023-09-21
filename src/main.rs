@@ -5,6 +5,7 @@ mod game;
 mod debug;
 mod helper;
 mod phases;
+mod backup;
 mod message;
 mod interface;
 mod game_creator;
@@ -12,7 +13,7 @@ use action::{Action, Action::{GeneralAction, UserAction}};
 use debug::{mock_game_creator, mock_game_vote_tie};
 use phases::{run_elimination_phase, run_it_phase, run_mutants_phase, run_physicians_phase, run_psychologist_phase};
 use std::env;
-use game::{ Game, PlayerGame };
+use game::{ Game, PlayerGame, GameStatus };
 use action::{ActionType, get_header_text, get_menu_text};
 use role::Role;
 use std::error;
@@ -27,14 +28,23 @@ fn main() -> Result<(), Box<dyn error::Error>> {
 
   let mut interface = Interface::new(debug);
 
-  if debug {
-    mock_game_creator(&mut interface);
-  }
+  let mut game;
+  if args.contains(&String::from("--from-backup")) {
+    // Shitty but will do for now
+    let mut iter = args.iter();
+    while iter.next().unwrap() != &String::from("--from-backup") {}
+    let path = iter.next().unwrap();
+    game = GameStatus::restore_from_backup(path).unwrap();
+  } else {
+    if debug {
+      mock_game_creator(&mut interface);
+    }
 
-  let mut game = game_creator::create_game(&mut interface, debug)?;
+    game = game_creator::create_game(&mut interface, debug)?;
 
-  if debug {
-    mock_game_vote_tie(&mut interface, &mut game);
+    if debug {
+      mock_game_vote_tie(&mut interface, &mut game);
+    }
   }
 
   start_game(game, &mut interface);
@@ -79,11 +89,23 @@ fn run_night(game: &mut dyn Game, interface: &mut Interface) {
   run_psychologist_phase(game);
 
   game.prepare_new_turn();
+
+  backup(game, interface);
+}
+
+fn backup (game: &mut dyn Game, interface: &mut Interface) {
+  if let Err(error) = game.backup("backups/") {
+    interface.clear_terminal();
+    println!("WARNING - Backup Error: details written to stderr");
+    eprintln!("WARNING - Backup Error: {}", error);
+    interface.user_validate("Appuyez sur entrée pour continuer");
+    interface.clear_terminal();
+  }
 }
 
 fn display_home_menu (game: &mut dyn Game, interface: &mut Interface) {
   interface.clear_terminal();
-  println!("Bienvenue sur le terminal de control du K-141 {}", Color::Bright.color("Koursk"));
+  println!("Bienvenue sur le terminal de control du {}", Color::Bright.color(game.get_name()));
   let mut actions_list: Vec<Action> = Vec::new();
   actions_list.push(GeneralAction(
     String::from("Identification"),
@@ -208,13 +230,13 @@ fn end_game(game: impl Game, interface: &mut Interface) {
   let healthy_players = game.get_alive_players().iter().filter(|player| !player.infected).count();
   if healthy_players == 0 {
     println!("===== Victoire des mutants =====");
-    println!("Le Koursk est maintenant aux mains des mutants et, avec la coopération des centaines de passagers en sommeil, essaimera la mutation dans la galaxie.");
+    println!("Le {} est maintenant aux mains des mutants et, avec la coopération des centaines de passagers en sommeil, essaimera la mutation dans la galaxie.", Color::Bright.color(game.get_name()));
     println!("Féliciations aux mutants");
     println!("Vous êtes l'avenir de l'humanité");
     println!("Mais il reste beaucoup à faire...");
   } else {
     println!("===== Victoire de l'humanité =====");
-    println!("L'équipage du Koursk est parvenu, au prix de grands sacrifices, à contenir et éliminer la mutation.");
+    println!("L'équipage du {} est parvenu, au prix de grands sacrifices, à contenir et éliminer la mutation.", Color::Bright.color(game.get_name()));
     println!("Féliciations aux survivants");
     println!("Grâce à vous l'humanité est sauve");
     println!("Pour le moment...");
