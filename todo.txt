@@ -16,3 +16,5 @@
 * elimination vote -> players should be allowed to update their actions after the vote
 * in-game explanations
 * fluf
+* backup
+
