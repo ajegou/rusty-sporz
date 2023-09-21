@@ -61,7 +61,7 @@ fn run_night(game: &mut dyn Game, interface: &mut Interface) {
     }
   }
 
-  run_elimination_phase(game);
+  run_elimination_phase(interface, game);
   run_mutants_phase(game);
   run_physicians_phase(game);
   run_it_phase(game);

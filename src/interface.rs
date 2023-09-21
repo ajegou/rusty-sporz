@@ -68,11 +68,15 @@ impl Interface {
     return &actions_list[choice];
   }
 
-  pub fn user_select<'a, T: std::fmt::Display> (&mut self, options_list: impl Iterator<Item = &'a T>) -> &'a T {
-    let mut options_by_idx: HashMap<String, &T> = HashMap::new();
+  pub fn user_select_from<'a, O: std::fmt::Display> (&mut self, options_list: impl Iterator<Item = &'a O>) -> &'a O {
+    return self.user_select_from_with_custom_display(options_list, |x| *x);
+  }
+
+  pub fn user_select_from_with_custom_display<O, T: std::fmt::Display> (&mut self, options_list: impl Iterator<Item = O>, displayer: impl Fn(&O) -> T) -> O {
+    let mut options_by_idx: HashMap<String, O> = HashMap::new();
     let mut idx = 1;
     for option in options_list {
-        println!("{idx}) {}", option);
+        println!("{idx}) {}", displayer(&option));
         options_by_idx.insert(idx.to_string(), option);
         idx += 1;
     }
@@ -124,10 +128,11 @@ impl Interface {
   }
 
   pub fn clear_terminal(&self) {
-    if self.debug {
-        print!("\n\n\n");
-    } else {
-        print!("{}[2J", 27 as char);
-    }
+    // if self.debug {
+    //     print!("\n\n\n");
+    // } else {
+    //     print!("{}[2J", 27 as char);
+    // }
+    print!("{}[2J", 27 as char);
   }
 }

@@ -49,7 +49,7 @@ impl <'a> GameCreator<'a> {
       self.interface.user_validate("Désolé, il n'y a aucun membre d'équipage à supprimer");
       self.interface.clear_terminal();
     } else {
-      let selected = self.interface.user_select(self.player_names.keys());
+      let selected = self.interface.user_select_from(self.player_names.keys());
       let key = self.player_names.remove(&selected.clone());
       self.id_keys.push(key.unwrap()); // The key cannot not be there
     }
@@ -134,7 +134,7 @@ pub fn create_game (interface: &mut Interface, args: Vec<String>) -> Result<Game
     println!("Liste des membres d'équipage actifs: [{names}]");
     println!("Que souhaitez vous faire?");
     
-    match game_creator.interface.user_select(vec![Options::AddPlayer, Options::RemovePlayer, Options::StartGame].iter()) {
+    match game_creator.interface.user_select_from(vec![Options::AddPlayer, Options::RemovePlayer, Options::StartGame].iter()) {
       Options::AddPlayer => game_creator.add_player(),
       Options::RemovePlayer => game_creator.remove_player(),
       Options::StartGame => {

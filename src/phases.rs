@@ -1,15 +1,13 @@
-use rand::Rng;
-
 use crate::{
   game::Game,
   role::Role,
   message::Message,
   action::ActionType,
   helper::{compute_votes_results, compute_votes_winner},
-  player::{Player, PlayerId}};
+  player::{Player, PlayerId}, interface::Interface};
 
 
-pub fn run_elimination_phase(game: &mut dyn Game) {
+pub fn run_elimination_phase(interface: &mut Interface, game: &mut dyn Game) {
   let current_date = game.get_date(); // do better
 
   // Check votes to eliminate a player
@@ -17,6 +15,19 @@ pub fn run_elimination_phase(game: &mut dyn Game) {
     game.get_alive_players().iter(),
     ActionType::Eliminate);
   let mut number_of_votes: Vec<usize> = elimination_results.values().map(|count|*count).collect();
+
+  let white_votes: usize = game.get_alive_players().len() - number_of_votes.iter().sum::<usize>();
+  number_of_votes.push(white_votes);
+  let max_number_of_votes = number_of_votes.iter().max().unwrap(); // cannot be empty
+  
+  let mut players_with_max_number: Vec<Option<PlayerId>> = elimination_results.iter()
+    .filter_map(|(player, votes)| {
+      if votes == max_number_of_votes { Some(player) } else { None }
+    }).map(|player| Some(*player)) // So we can add None for the whites
+    .collect();
+  if *max_number_of_votes == white_votes {
+    players_with_max_number.push(None);
+  }
 
   // Notify everyone of how many crew members attempted to kill you, if any
   for (target, votes) in elimination_results.iter() {
@@ -27,24 +38,11 @@ pub fn run_elimination_phase(game: &mut dyn Game) {
       content: format!("Cette nuit, {votes} membres d'équipages ont tenté de vous éliminer."),
     });
   }
-
-  let white_votes: usize = game.get_alive_players().len() - number_of_votes.iter().sum::<usize>();
-  number_of_votes.push(white_votes);
-  let max_number_of_votes = number_of_votes.iter().max().unwrap(); // cannot be empty
   
-  let mut players_with_max_number: Vec<Option<&PlayerId>> = elimination_results.iter()
-    .filter_map(|(player, votes)| {
-      if votes == max_number_of_votes { Some(player) } else { None }
-    }).map(|player| Some(player)) // So we can add None for the whites
-    .collect();
-  if *max_number_of_votes == white_votes {
-    players_with_max_number.push(None);
-  }
-  
-  let dead_crew_member = select_who_dies(players_with_max_number);
+  let dead_crew_member = select_who_dies(interface, game, players_with_max_number);
   match dead_crew_member {
     Some(player) => {
-      let player = game.get_mut_player(*player);
+      let player = game.get_mut_player(player);
       player.alive = false;
       player.death_cause = Some(String::from("Aspiré·e accidentellement par le sas tribord"));
       
@@ -71,9 +69,22 @@ pub fn run_elimination_phase(game: &mut dyn Game) {
   }
 }
 
-fn select_who_dies (options: Vec<Option<&PlayerId>>) -> Option<&PlayerId> {
-  let mut rng = rand::thread_rng(); // lame but temporary
-  return options[rng.gen_range(0..options.len())];
+fn select_who_dies (interface: &mut Interface, game: &dyn Game, options: Vec<Option<PlayerId>>) -> Option<PlayerId> {
+  if options.len() == 0 {
+    return None;
+  }
+  if options.len() == 1 {
+    return options[0];
+  }
+  let displayer = |player: &&Option<PlayerId>| match player {
+    Some(player) => game.get_player(*player).name.clone(),
+    None => String::from("Aucun"),
+  };
+
+  // TODO: check the leader's code to validate
+  println!("Merci de faire venir le représentant du personnel!");
+  println!("Un des membres d'équipage suivant doit être éliminé:");
+  return *interface.user_select_from_with_custom_display(options.iter(), displayer);
 }
 
 pub fn run_mutants_phase(game: &mut dyn Game) {
