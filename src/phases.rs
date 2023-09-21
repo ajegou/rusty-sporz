@@ -1,10 +1,12 @@
+use rand::Rng;
+
 use crate::{
   game::Game,
   role::Role,
   message::Message,
   action::ActionType,
   helper::{compute_votes_results, compute_votes_winner},
-  player::Player};
+  player::{Player, PlayerId}};
 
 
 pub fn run_elimination_phase(game: &mut dyn Game) {
@@ -14,10 +16,35 @@ pub fn run_elimination_phase(game: &mut dyn Game) {
   let elimination_results = compute_votes_results(
     game.get_alive_players().iter(),
     ActionType::Eliminate);
-  let death_threshold = game.get_alive_players().len() / 2;
+  let mut number_of_votes: Vec<usize> = elimination_results.values().map(|count|*count).collect();
+
+  // Notify everyone of how many crew members attempted to kill you, if any
   for (target, votes) in elimination_results.iter() {
-    if *votes > death_threshold {
-      let player = game.get_mut_player(*target);
+    let player = game.get_mut_player(*target);
+    player.send_message(Message {
+      date: current_date,
+      source: String::from("Ordinateur Central"),
+      content: format!("Cette nuit, {votes} membres d'équipages ont tenté de vous éliminer."),
+    });
+  }
+
+  let white_votes: usize = game.get_alive_players().len() - number_of_votes.iter().sum::<usize>();
+  number_of_votes.push(white_votes);
+  let max_number_of_votes = number_of_votes.iter().max().unwrap(); // cannot be empty
+  
+  let mut players_with_max_number: Vec<Option<&PlayerId>> = elimination_results.iter()
+    .filter_map(|(player, votes)| {
+      if votes == max_number_of_votes { Some(player) } else { None }
+    }).map(|player| Some(player)) // So we can add None for the whites
+    .collect();
+  if *max_number_of_votes == white_votes {
+    players_with_max_number.push(None);
+  }
+  
+  let dead_crew_member = select_who_dies(players_with_max_number);
+  match dead_crew_member {
+    Some(player) => {
+      let player = game.get_mut_player(*player);
       player.alive = false;
       player.death_cause = Some(String::from("Aspiré·e accidentellement par le sas tribord"));
       
@@ -35,15 +62,18 @@ pub fn run_elimination_phase(game: &mut dyn Game) {
         source: String::from("Ordinateur Central"),
         content: format!("{} {} {}", who_died, who_he_was, comment),
       })
-    } else {
-      let player = game.get_mut_player(*target);
-      player.send_message(Message {
-        date: current_date,
-        source: String::from("Ordinateur Central"),
-        content: format!("Cette nuit, {votes} membres d'équipages ont tenté de vous éliminer."),
-      });
-    }
+    },
+    None => game.broadcast(Message {
+      date: current_date,
+      source: String::from("Ordinateur Central"),
+      content: String::from("Tout le monde a très bien dormi cette nuit."),
+    }),
   }
+}
+
+fn select_who_dies (options: Vec<Option<&PlayerId>>) -> Option<&PlayerId> {
+  let mut rng = rand::thread_rng(); // lame but temporary
+  return options[rng.gen_range(0..options.len())];
 }
 
 pub fn run_mutants_phase(game: &mut dyn Game) {
