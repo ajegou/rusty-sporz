@@ -81,8 +81,10 @@ fn select_who_dies (interface: &mut Interface, game: &dyn Game, options: Vec<Opt
     None => String::from("Aucun"),
   };
 
+  interface.clear_terminal();
   // TODO: check the leader's code to validate
-  println!("Merci de faire venir le représentant du personnel!");
+  interface.play_alarm("Merci de faire venir le représentant du personnel!");
+  println!("");
   println!("Un des membres d'équipage suivant doit être éliminé:");
   return *interface.user_select_from_with_custom_display(options.iter(), displayer);
 }

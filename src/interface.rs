@@ -1,7 +1,13 @@
 use std::{io, collections::HashMap};
 use std::io::Write;
+use std::fs::File;
+use std::io::BufReader;
+use rodio::Sink;
+use rodio::{Decoder, OutputStream};
 
 use crate::{player::Player, action::Action, action::Action::{UserAction, GeneralAction}};
+
+use self::colors::Color;
 
 pub mod colors;
 
@@ -31,7 +37,7 @@ impl Interface {
   fn read_line (&mut self, input: &mut String) -> Result<usize, std::io::Error> {
     if let Some(next_mock) = self.input_mock.pop() {
       let bytes = next_mock.len();
-      print!("{}", colors::Color::FgCyan.color(&next_mock));
+      print!("{}", Color::FgCyan.color(&next_mock));
       *input = next_mock;
       return Ok(bytes);
     } else {
@@ -133,5 +139,20 @@ impl Interface {
     } else {
         print!("{}[2J", 27 as char);
     }
+  }
+
+  pub fn play_alarm (&mut self, message: &str) {
+    let filename = "sounds/Alarm_or_siren.mp3";
+    let (_stream, stream_handle) = OutputStream::try_default().unwrap();
+    let sink = Sink::try_new(&stream_handle).unwrap();
+    let file = BufReader::new(File::open(filename).unwrap());
+    let source = Decoder::new(file).unwrap();
+
+    // kind of ridiculous attempt at synchronizing the sound with the blink
+    sink.set_speed(0.42);
+
+    sink.append(source);
+    self.user_validate(Color::Blink.color(message).as_str());
+    sink.stop();
   }
 }

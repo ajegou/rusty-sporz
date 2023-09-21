@@ -5,7 +5,6 @@ use std::error;
 use rand::thread_rng;
 use rand::seq::SliceRandom;
 
-use crate::debug::DEBUG_PLAYER_NAMES;
 use crate::game::GameStatus;
 use crate::interface::Interface;
 use crate::player::Player;
