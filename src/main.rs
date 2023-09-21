@@ -9,6 +9,7 @@ mod message;
 mod interface;
 mod game_creator;
 use action::{Action, Action::{GeneralAction, UserAction}};
+use debug::{mock_game_creator, mock_game_vote_tie};
 use phases::{run_elimination_phase, run_it_phase, run_mutants_phase, run_physicians_phase, run_psychologist_phase};
 use std::env;
 use game::{ Game, PlayerGame };
@@ -25,7 +26,17 @@ fn main() -> Result<(), Box<dyn error::Error>> {
   let debug = args.contains(&String::from("--debug"));
 
   let mut interface = Interface::new(debug);
-  let game = game_creator::create_game(&mut interface, args)?;
+
+  if debug {
+    mock_game_creator(&mut interface);
+  }
+
+  let mut game = game_creator::create_game(&mut interface, debug)?;
+
+  if debug {
+    mock_game_vote_tie(&mut interface, &mut game);
+  }
+
   start_game(game, &mut interface);
 
   return Ok(());
@@ -72,9 +83,6 @@ fn run_night(game: &mut dyn Game, interface: &mut Interface) {
 
 fn display_home_menu (game: &mut dyn Game, interface: &mut Interface) {
   interface.clear_terminal();
-  if game.debug() {
-    run_action_crew_status(game, interface);
-  }
   println!("Bienvenue sur le terminal de control du K-141 {}", Color::Bright.color("Koursk"));
   let mut actions_list: Vec<Action> = Vec::new();
   actions_list.push(GeneralAction(
@@ -162,6 +170,8 @@ fn display_player_status_and_actions (game_status: &mut impl Game, interface: &m
     }
   }
 
+  add_exit_action(&mut actions_list);
+
   if player.alive {
     add_action_elimination(game, &mut actions_list);
 
@@ -181,8 +191,6 @@ fn display_player_status_and_actions (game_status: &mut impl Game, interface: &m
       add_action_mutant(game, &mut actions_list);
     }
   }
-
-  add_exit_action(&mut actions_list);
 
   match interface.user_select_action(&actions_list) {
     UserAction(_, run) => run(game, interface),

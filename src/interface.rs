@@ -128,11 +128,10 @@ impl Interface {
   }
 
   pub fn clear_terminal(&self) {
-    // if self.debug {
-    //     print!("\n\n\n");
-    // } else {
-    //     print!("{}[2J", 27 as char);
-    // }
-    print!("{}[2J", 27 as char);
+    if self.debug {
+        print!("\n##############################\n\n");
+    } else {
+        print!("{}[2J", 27 as char);
+    }
   }
 }

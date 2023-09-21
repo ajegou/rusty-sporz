@@ -105,11 +105,7 @@ impl <'a> GameCreator<'a> {
   }
 }
 
-pub fn create_game (interface: &mut Interface, args: Vec<String>) -> Result<GameStatus, Box<dyn error::Error>> {
-  let debug = args.contains(&String::from("--debug"));
-  if debug {
-    mock_game_creator(interface);
-  }
+pub fn create_game (interface: &mut Interface, debug: bool) -> Result<GameStatus, Box<dyn error::Error>> {
   let mut game_creator = GameCreator::new(interface, debug);
 
   enum Options {
@@ -156,15 +152,4 @@ fn generaye_keys (debug: bool) -> Vec<String> {
       keys.shuffle(&mut thread_rng());
   }
   return keys;
-}
-
-fn mock_game_creator (interface: &mut Interface) {
-  let mut inputs = Vec::new();
-  for name in DEBUG_PLAYER_NAMES {
-    inputs.push(String::from("1\n"));
-    inputs.push(format!("{name}\n"));
-    inputs.push(String::from(""));
-  }
-  inputs.push(String::from("3\n"));
-  interface.mock(inputs);
 }
