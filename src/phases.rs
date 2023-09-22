@@ -46,19 +46,25 @@ pub fn run_elimination_phase(interface: &mut Interface, game: &mut dyn Game) {
       player.alive = false;
       player.death_cause = Some(String::from("Aspiré·e accidentellement par le sas tribord"));
 
-      let who_died = format!("Conformément à la volonté populaire, {} à été retiré du service actif.", player.name);
-      let who_he_was;
+      let mut content = String::new();
+      content.push_str(format!("Conformément à la volonté populaire, {} à été retiré du service actif.", player.name).as_str());
+
       if player.infected {
         let role = if player.role == Role::Patient0 { &Role::Astronaut } else { &player.role }; // Patient0's is not revealed on death
-        who_he_was = format!("L'autopsie à révélée que {} était en réalité un·e {} mutant·e!", player.name, role);
+        content.push_str(format!(" L'autopsie a révélé que {} était en réalité un·e {} mutant·e!", player.name, role).as_str());
       } else {
-        who_he_was = format!("{} était un·e honnête {} dévoué à la mission.", player.name, player.role);
+        content.push_str(format!(" {} était un·e honnête {} dévoué à la mission.", player.name, player.role).as_str());
       }
-      let comment = "Vous pouvez lui dire adieu par le hublot tribord.";
+      if player.host {
+        content.push_str(" L'analyse génomique a de plus révélé qu'iel était particulierement succeptible à la mutation. Aujourd'hui est donc un grand jour!");
+      } else if player.resilient {
+        content.push_str(" L'analyse génomique a de plus révélé qu'iel était résistant à la mutation. Une perte véritablement tragique...");
+      }
+      content.push_str(" Vous pouvez lui dire adieu par le hublot tribord :-)");
       game.broadcast(Message {
         date: current_date,
         source: String::from("Ordinateur Central"),
-        content: format!("{} {} {}", who_died, who_he_was, comment),
+        content,
       })
     },
     None => game.broadcast(Message {
