@@ -46,7 +46,7 @@ impl Color {
       Color::Blink => "\x1b[5m",
       Color::Reverse => "\x1b[7m",
       Color::Hidden => "\x1b[8m",
-    
+
       Color::FgBlack => "\x1b[30m",
       Color::FgRed => "\x1b[31m",
       Color::FgGreen => "\x1b[32m",
@@ -55,7 +55,7 @@ impl Color {
       Color::FgMagenta => "\x1b[35m",
       Color::FgCyan => "\x1b[36m",
       Color::FgWhite => "\x1b[37m",
-    
+
       Color::BgBlack => "\x1b[40m",
       Color::BgRed => "\x1b[41m",
       Color::BgGreen => "\x1b[42m",

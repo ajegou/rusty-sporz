@@ -30,12 +30,12 @@ impl <'a> GameCreator<'a> {
       ship_name: None,
     }
   }
-  
+
   pub fn name_ship (&mut self) {
     let name = self.interface.user_non_empty_input("Quel est le nom de votre vaisseau?");
     self.ship_name = Some(name);
   }
-  
+
   pub fn add_player (&mut self) {
     let name = loop {
       let name = self.interface.user_non_empty_input("Sous quel dénominatif souhaitez-vous être identifié·e?");
@@ -141,7 +141,7 @@ pub fn create_game (interface: &mut Interface, debug: bool) -> Result<GameStatus
     let names = game_creator.player_names.keys().map(|name| name.clone()).collect::<Vec<String>>().join(", ");
     println!("Liste des membres d'équipage actifs: [{names}]");
     println!("Que souhaitez vous faire?");
-    
+
     match game_creator.interface.user_select_from(vec![Options::NameShip, Options::AddPlayer, Options::RemovePlayer, Options::StartGame].iter()) {
       Options::NameShip => game_creator.name_ship(),
       Options::AddPlayer => game_creator.add_player(),
@@ -153,7 +153,6 @@ pub fn create_game (interface: &mut Interface, debug: bool) -> Result<GameStatus
       },
     }
   }
-  
 }
 
 

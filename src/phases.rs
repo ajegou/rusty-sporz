@@ -19,7 +19,7 @@ pub fn run_elimination_phase(interface: &mut Interface, game: &mut dyn Game) {
   let white_votes: usize = game.get_players().len() - number_of_votes.iter().sum::<usize>();
   number_of_votes.push(white_votes);
   let max_number_of_votes = number_of_votes.iter().max().unwrap(); // cannot be empty
-  
+
   let mut players_with_max_number: Vec<Option<PlayerId>> = elimination_results.iter()
     .filter_map(|(player, votes)| {
       if votes == max_number_of_votes { Some(player) } else { None }
@@ -38,14 +38,14 @@ pub fn run_elimination_phase(interface: &mut Interface, game: &mut dyn Game) {
       content: format!("Cette nuit, {votes} membres d'équipages ont tenté de vous éliminer."),
     });
   }
-  
+
   let dead_crew_member = select_who_dies(interface, game, players_with_max_number);
   match dead_crew_member {
     Some(player) => {
       let player = game.get_mut_player(player);
       player.alive = false;
       player.death_cause = Some(String::from("Aspiré·e accidentellement par le sas tribord"));
-      
+
       let who_died = format!("Conformément à la volonté populaire, {} à été retiré du service actif.", player.name);
       let who_he_was;
       if player.infected {
@@ -132,7 +132,7 @@ pub fn run_mutants_phase(game: &mut dyn Game) {
 
     // Paralyze one player
     let paralyze_result = compute_votes_winner(
-        game.get_players().iter().filter(|player| player.infected), 
+        game.get_players().iter().filter(|player| player.infected),
         ActionType::Paralyze);
     if let Some((player_id, _)) = paralyze_result {
         let paralized_name = &game.get_player(player_id).name;

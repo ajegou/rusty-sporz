@@ -41,7 +41,7 @@ pub struct Player {
   pub death_cause: Option<String>,
   pub has_connected_today: bool,
   pub auto_cure_physician: bool,
-  
+
   // daily data
   pub actions: HashMap<ActionType, PlayerId>,
   pub spy_info: SpyData,
