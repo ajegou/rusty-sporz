@@ -181,6 +181,11 @@ fn display_player_status_and_actions (game_status: &mut impl Game, interface: &m
     Color::Blink.color(Color::FgRed.color("Mort").as_str())
   };
   println!("Bienvenue {}, vous êtes un {} {}", player.name, player.role, status);
+  if player.role == Role::Physician { //Physicians know the list of other physicians
+    let physician_names: Vec<String> = game.get_alive_players().iter()
+      .filter_map(|player| if player.role == Role::Physician { Some(player.name.clone()) } else { None }).collect();
+    println!("* Membres de l'équipe médicale: [{}]", physician_names.join(", "));
+  }
   if player.infected {
     println!("En tant que mutant, vous devez prendre le contrôle du vaisseau en infectant ou éliminant tous les membres d'équipage encore saints!");
   } else {
