@@ -22,7 +22,7 @@ pub fn mock_game_creator (interface: &mut Interface) {
     inputs.push(format!("{name}\n"));
     inputs.push(String::from(""));
   }
-  inputs.push(String::from("4\n"));
+  inputs.push(String::from("5\n"));
   interface.mock(inputs);
 }
 
