@@ -33,7 +33,6 @@ pub struct Player {
   pub name: String,
   pub role: Role,
   pub messages: Vec<Message>,
-  pub actions: HashMap<ActionType, PlayerId>,
 
   // status
   pub alive: bool,
@@ -41,6 +40,19 @@ pub struct Player {
   pub paralyzed: bool,
   pub death_cause: Option<String>,
   pub has_connected_today: bool,
+  
+  // daily data
+  pub actions: HashMap<ActionType, PlayerId>,
+  pub spy_info: SpyData,
+}
+
+#[derive(Debug, Default, Serialize, Deserialize, Clone, Copy)]
+pub struct SpyData {
+  pub woke_up: bool,
+  pub was_cured: bool, // only if it had an effect
+  pub was_infected: bool, // only if it had an effect
+  pub was_paralyzed: bool,
+  pub was_psychoanalyzed: bool,
 }
 
 impl Player {
@@ -58,12 +70,14 @@ impl Player {
       messages: Vec::new(),
       actions: HashMap::new(),
       has_connected_today: false,
+      spy_info: SpyData{ ..Default::default() },
     }
   }
 
   pub fn prepare_new_turn(&mut self) {
     self.actions = HashMap::new();
     self.has_connected_today = false;
+    self.spy_info = SpyData{ ..Default::default() };
   }
 
   pub fn get_target(&self, action: &ActionType) -> Option<&PlayerId> {

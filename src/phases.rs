@@ -103,6 +103,10 @@ pub fn run_mutants_phase(game: &mut dyn Game) {
         content: String::from(format!("Lors du dernier crépuscule, les mutant·e·s étaient: [{mutants_names}]")),
     }, & |player: &&mut &mut Player| player.infected);
 
+    for player in game.get_mut_alive_players().iter_mut().filter(|player| player.infected) {
+      player.spy_info.woke_up = true;
+    }
+
     // Mutate one player
     let mutate_results = compute_votes_winner(
         game.get_alive_players().iter().filter(|player| player.infected),
@@ -115,12 +119,15 @@ pub fn run_mutants_phase(game: &mut dyn Game) {
             content: String::from(format!("Félicitations, cette nuit vous êtes parvenus à infecter: {mutatee_name}")),
         }, & |player: &&mut &mut Player| player.infected);
         let mutate_winner = game.get_mut_player(player_id);
-        mutate_winner.infected = true;
-        mutate_winner.send_message(Message { // Notify the new mutant that he was infected
-            date: current_date,
-            source: String::from("Overmind"),
-            content: String::from(format!("Bienvenue {}, nous sommes heureuxe de vous compter parmis nous.", mutate_winner.name)),
-        })
+        if mutate_winner.infected == false {
+          mutate_winner.infected = true;
+          mutate_winner.spy_info.was_infected = true;
+          mutate_winner.send_message(Message { // Notify the new mutant that he was infected
+              date: current_date,
+              source: String::from("Overmind"),
+              content: String::from(format!("Bienvenue {}, nous sommes heureuxe de vous compter parmis nous.", mutate_winner.name)),
+          })
+        }
     }
 
     // Paralyze one player
@@ -128,8 +135,16 @@ pub fn run_mutants_phase(game: &mut dyn Game) {
         game.get_alive_players().iter().filter(|player| player.infected), 
         ActionType::Paralyze);
     if let Some((player_id, _)) = paralyze_result {
+        let paralized_name = &game.get_player(player_id).name;
+        game.limited_broadcast(Message { // Notify mutants of who was paralysed
+            date: current_date,
+            source: String::from("Overmind"),
+            content: String::from(format!("Félicitations, cette nuit vous êtes parvenus à paralyser: {paralized_name}")),
+        }, & |player: &&mut &mut Player| player.infected);
+
         let paralyzed_player = game.get_mut_player(player_id);
         paralyzed_player.paralyzed = true;
+        paralyzed_player.spy_info.was_paralyzed = true;
         paralyzed_player.messages.push(Message {
             date: current_date,
             source: String::from("Outil d'auto diagnostique"),
@@ -165,6 +180,7 @@ pub fn run_physicians_phase(game: &mut dyn Game) {
       if let Some(target) = physician.actions.get(&ActionType::Cure) {
         cured_players.push(*target);
       }
+      physician.spy_info.woke_up = true;
       active_physicians.push(physician.id);
       active_physician_names.push(physician.name.clone());
     }
@@ -181,6 +197,7 @@ pub fn run_physicians_phase(game: &mut dyn Game) {
       });
     } else if game.get_player(cured_player).infected {
       game.get_mut_player(cured_player).infected = false;
+      game.get_mut_player(cured_player).spy_info.was_cured = true;
       game.get_mut_player(cured_player).send_message(Message {
         date: current_date,
         source: String::from("Équipe médicale"),
@@ -190,7 +207,7 @@ pub fn run_physicians_phase(game: &mut dyn Game) {
       game.get_mut_player(cured_player).send_message(Message {
         date: current_date,
         source: String::from("Équipe médicale"),
-        content: String::from("Vous avez subit un traitement anti-mutation cette nuit, bien qu'il n'y ait eu aucune trace de mutations dans votre corps"),
+        content: String::from("Vous avez été soigné par un traitement anti-mutation cette nuit, bien qu'il n'y ait eu aucune trace de mutations dans votre corps"),
       });
     }
   }
@@ -212,6 +229,7 @@ pub fn run_it_phase(game: &mut dyn Game) {
   let infected_players = game.get_alive_players().iter().filter(|player| player.infected).count();
   for player in game.get_mut_alive_players() {
     if player.role == Role::ITEngineer && !player.paralyzed {
+      player.spy_info.woke_up = true;
       player.send_message(Message {
         date: current_date,
         source: String::from("Système de diagnostique"),
@@ -226,14 +244,16 @@ pub fn run_psychologist_phase(game: &mut dyn Game) {
   let psychologists_ids = game.get_player_ids(&|player| player.role == Role::Psychologist);
   for psychologists_id in psychologists_ids {
     if !game.get_player(psychologists_id).paralyzed {
-      if let Some(target) = game.get_player(psychologists_id).get_target(&ActionType::Psychoanalyze) {
-        let name = game.get_player(*target).name.clone();
-        if game.get_player(*target).infected {
+      game.get_mut_player(psychologists_id).spy_info.woke_up = true;
+      if let Some(analyzed_id) = game.get_player(psychologists_id).get_target(&ActionType::Psychoanalyze).copied() {
+        game.get_mut_player(analyzed_id).spy_info.was_psychoanalyzed = true;
+        let name = game.get_player(analyzed_id).name.clone();
+        if game.get_player(analyzed_id).infected {
           game.get_mut_player(psychologists_id).send_message(Message {
             date: current_date,
             source: String::from("Freud GPT"),
             content: format!("D'après l'analyse, il semblerait que le comportement déviant de {} ne découle pas d'un trauma d'enfance, mais d'un changement récent. C'est un·e mutant·e!", name),
-          })
+          });
         } else {
           game.get_mut_player(psychologists_id).send_message(Message {
             date: current_date,
@@ -244,4 +264,59 @@ pub fn run_psychologist_phase(game: &mut dyn Game) {
       }
     } // See if we want to display something in else
   }
+}
+
+pub fn run_spy_phase(game: &mut dyn Game) {
+  let current_date = game.get_date(); // do better
+  for spy_id in game.get_player_ids(&|player| player.role == Role::Spy) {
+    let spy = game.get_player(spy_id);
+    if spy.paralyzed {
+      game.get_mut_player(spy_id).send_message(Message {
+        date: current_date,
+        source: String::from("Outil d'auto diagnostique"),
+        content: String::from("Vous avez été paralysé·e pendant la nuit, vous n'avez donc pu espioner vos camarades"),
+      });
+    } else {
+      if let Some(target) = spy.get_target(&ActionType::Spy).copied() {
+        let target_name = game.get_player(target).name.clone();
+        let spy_info = game.get_player(target).spy_info.clone();
+        if spy_info.woke_up {
+          game.get_mut_player(spy_id).send_message(Message {
+            date: current_date,
+            source: String::from("Stalker IV"),
+            content: format!("Durant votre surveillance, vous avez vu {target_name} se reveiller et sortir de son dortoir"),
+          });
+        }
+        if spy_info.was_infected {
+          game.get_mut_player(spy_id).send_message(Message {
+            date: current_date,
+            source: String::from("Stalker IV"),
+            content: format!("Durant votre surveillance, vous avez vu {target_name} se transformer en mutant·e"),
+          });
+        }
+        if spy_info.was_paralyzed {
+          game.get_mut_player(spy_id).send_message(Message {
+            date: current_date,
+            source: String::from("Stalker IV"),
+            content: format!("Durant votre surveillance, vous avez vu {target_name} être paralysé·e"),
+          });
+        }
+        if spy_info.was_cured {
+          game.get_mut_player(spy_id).send_message(Message {
+            date: current_date,
+            source: String::from("Stalker IV"),
+            content: format!("Durant votre surveillance, vous avez vu {target_name} guérir de sa mutation"),
+          });
+        }
+        if spy_info.was_psychoanalyzed {
+          game.get_mut_player(spy_id).send_message(Message {
+            date: current_date,
+            source: String::from("Stalker IV"),
+            content: format!("Durant votre surveillance, vous avez vu {target_name} être analysé·e par le psychologue"),
+          });
+        }
+      }
+    }
+  }
+
 }
