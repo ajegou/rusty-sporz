@@ -1,15 +1,14 @@
 use std::fmt;
 use serde::{Serialize, Deserialize};
 
-#[allow(dead_code)]
-#[derive(PartialEq, Debug, Serialize, Deserialize)]
+#[derive(PartialEq, Eq, Hash, PartialOrd, Ord, Debug, Serialize, Deserialize, Clone, Copy)]
 pub enum Role {
   Patient0,
-  Psychologist,
   Physician,
-  Geneticist,
+  Psychologist,
   ITEngineer,
   Spy,
+  Geneticist,
   Hacker,
   Traitor,
   Astronaut,

@@ -1,4 +1,6 @@
 use std::collections::BTreeMap;
+use std::collections::HashMap;
+use std::cmp;
 use std::fmt;
 use std::error;
 
@@ -15,7 +17,7 @@ struct GameCreator<'a> {
   interface: &'a mut Interface,
   id_keys: Vec<String>,
   player_names: BTreeMap<String, String>, // want a sorted map for simpler debug
-  custom_roles: Option<Vec<Role>>,
+  custom_roles: Option<HashMap<Role, usize>>,
   ship_name: Option<String>,
 }
 
@@ -61,21 +63,82 @@ impl <'a> GameCreator<'a> {
     }
   }
 
-  pub fn get_default_roles (&mut self) -> Vec<Role> {
-    let mut roles = Vec::new();
-    roles.push(Role::Patient0);
-    roles.push(Role::Physician);
-    roles.push(Role::Physician);
-    roles.push(Role::Psychologist);
-    roles.push(Role::ITEngineer);
-    roles.push(Role::Spy);
-    roles.push(Role::Astronaut);
-    while roles.len() < self.player_names.len() {
-      roles.push(Role::Astronaut);
+  pub fn update_roles (&mut self) {
+    let all_roles = vec![Role::Patient0, Role::Psychologist, Role::Physician, Role::Geneticist, Role::ITEngineer, Role::Spy, Role::Hacker, Role::Traitor, Role::Astronaut];
+    match &mut self.custom_roles {
+      None => {
+        println!("La partie est configurée pour utiliser les roles par défaut:");
+      },
+      Some(_) => {
+        println!("La partie est configurée pour utiliser des roles personalisés:");
+      },
     }
-    if !self.debug { // Keep the roles ordered when debugging
+
+    let default_roles = self.get_default_roles();
+    let roles = self.custom_roles.as_ref().unwrap_or(&default_roles);
+    for role in &all_roles {
+      println!("* {}: {}", role, roles.get(role).unwrap_or(&0));
+    }
+    println!();
+    
+    let modify = "Modifier les roles à utiliser";
+    let use_default = "Utiliser les roles par défaut";
+    let ret = "Retour";
+    let choices = vec![modify, use_default, ret];
+    let choice = self.interface.user_select_from(choices.iter());
+    match *choice {
+      ref x if x == &ret => (),
+      ref x if x == &use_default => self.custom_roles = None,
+      ref x if x == &modify => {
+        if self.custom_roles.is_none() {
+          self.custom_roles = Some(default_roles);
+        }
+        println!("");
+        println!("Quel role voulez vous modifier?");
+        let role = self.interface.user_select_from(all_roles.iter());
+        let count = loop {
+          let count = self.interface.user_non_empty_input(format!("Combient de {role} voulez vous?").as_str());
+          let count = count.parse::<usize>();
+          if let Ok(count) = count {
+            break count;
+          }
+          println!("Avec un nombre ce serait pas mal!")
+        };
+        self.custom_roles.as_mut().unwrap().insert(*role, count);
+        self.update_roles();
+      }
+      _ => panic!(), // beurk
+    }
+  }
+
+  fn get_roles (&self) -> Vec<Role> {
+    let default_roles = self.get_default_roles(); // lame, but not sure how to do otherwise
+    let roles_map = self.custom_roles.as_ref().unwrap_or(&default_roles);
+
+    let mut roles = Vec::new();
+    for (role, count) in roles_map.iter() {
+      for _ in 0..*count {
+        roles.push(role.clone());
+      }
+    }
+    if self.debug { // Keep the roles ordered when debugging
+      roles.sort();
+    } else {
       roles.shuffle(&mut thread_rng());
     }
+    return roles;
+  }
+
+  pub fn get_default_roles (&self) -> HashMap<Role, usize> {
+    let mut roles = HashMap::new();
+    roles.insert(Role::Patient0, 1);
+    roles.insert(Role::Physician, 2);
+    roles.insert(Role::Psychologist, 1);
+    roles.insert(Role::ITEngineer, 1);
+    roles.insert(Role::Spy, 1);
+    // Add astronauts for a 7 players game if there are less registered
+    let astronauts = cmp::max(7, self.player_names.len()) - roles.values().sum::<usize>();
+    roles.insert(Role::Astronaut, astronauts);
     return roles;
   }
 
@@ -88,20 +151,16 @@ impl <'a> GameCreator<'a> {
       self.interface.user_validate("Désolé, il vous faut au moins 7 joueurs pour jouer");
       return false;
     }
-    if let Some(roles) = &self.custom_roles {
-      if self.player_names.len() != roles.len() {
-        self.interface.user_validate(format!("Le nombre de roles ({}) doit correspondre au nombre de joueurs ({})", roles.len(), self.player_names.len()).as_str());
-        return false;
-      }
+    let roles = self.get_roles();
+    if self.player_names.len() != roles.len() {
+      self.interface.user_validate(format!("Le nombre de roles ({}) doit correspondre au nombre de joueurs ({})", roles.len(), self.player_names.len()).as_str());
+      return false;
     }
     return true;
   }
 
-  pub fn create_game (mut self) -> Result<GameStatus, Box<dyn error::Error>> {
-    let mut roles = match self.custom_roles {
-      Some(roles) => roles,
-      None => self.get_default_roles(),
-    };
+  pub fn create_game (self) -> Result<GameStatus, Box<dyn error::Error>> {
+    let mut roles = self.get_roles();
 
     let mut next_user_id = 0;
     let mut players: Vec<Player> = Vec::new();
@@ -133,6 +192,7 @@ pub fn create_game (interface: &mut Interface, debug: bool) -> Result<GameStatus
     NameShip,
     AddPlayer,
     RemovePlayer,
+    UpdateRoles,
     StartGame,
   }
   impl fmt::Display for Options {
@@ -141,6 +201,7 @@ pub fn create_game (interface: &mut Interface, debug: bool) -> Result<GameStatus
         Options::NameShip => write!(f, "Nommer votre vaisseau")?,
         Options::AddPlayer => write!(f, "Ajouter un membre d'équipage")?,
         Options::RemovePlayer => write!(f, "Supprimer un membre d'équipage")?,
+        Options::UpdateRoles => write!(f, "Selectionner la liste des roles")?,
         Options::StartGame => write!(f, "Commencer la partie")?,
       };
       return Ok(());
@@ -153,10 +214,12 @@ pub fn create_game (interface: &mut Interface, debug: bool) -> Result<GameStatus
     println!("Liste des membres d'équipage actifs: [{names}]");
     println!("Que souhaitez vous faire?");
 
-    match game_creator.interface.user_select_from(vec![Options::NameShip, Options::AddPlayer, Options::RemovePlayer, Options::StartGame].iter()) {
+    let options_list = vec![Options::NameShip, Options::AddPlayer, Options::RemovePlayer, Options::UpdateRoles, Options::StartGame];
+    match game_creator.interface.user_select_from(options_list.iter()) {
       Options::NameShip => game_creator.name_ship(),
       Options::AddPlayer => game_creator.add_player(),
       Options::RemovePlayer => game_creator.remove_player(),
+      Options::UpdateRoles => game_creator.update_roles(),
       Options::StartGame => {
         if game_creator.can_create_game() {
           return game_creator.create_game();
