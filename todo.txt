@@ -1,5 +1,5 @@
 X spy
-* geneticist
+X geneticist
 * hacker
 * traitor
 X physician: allow activating an option to cure (or kill) the other physician is he doesn't wake up
@@ -10,7 +10,7 @@ X physician: know who is the other physician at the beginning of the game
 * mutants: allow killing instead of mutating
 * election of leader -> need an ordered list
   * maybe not. now the leader is prompted when needed, but maybe check his key (or a specific leader key)
-* genome
+X genome
 * customized list of roles
 X elimination vote: should be a majority (including white votes), not absolute majority
 * add a special key for dead people to see the full status
@@ -21,3 +21,5 @@ X elimination vote: should be a majority (including white votes), not absolute m
 X backup
 * proper arguments parsing
 * clean up main.rs
+* somehow make a config with:
+  * genomes + geneticist

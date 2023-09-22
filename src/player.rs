@@ -33,6 +33,8 @@ pub struct Player {
   pub name: String,
   pub role: Role,
   pub messages: Vec<Message>,
+  pub host: bool,
+  pub resilient: bool,
 
   // status
   pub alive: bool,
@@ -64,6 +66,8 @@ impl Player {
       key,
       name,
       role,
+      host: false,
+      resilient: false,
       alive: true,
       infected,
       paralyzed: false,

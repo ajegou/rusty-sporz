@@ -14,6 +14,7 @@ pub enum ActionType {
   Spy,
   Cure,
   Psychoanalyze,
+  Genomyze,
 }
 
 pub fn get_menu_text(action: ActionType) -> String {
@@ -24,6 +25,7 @@ pub fn get_menu_text(action: ActionType) -> String {
     ActionType::Spy => String::from("Surveiller un·e individu·e"),
     ActionType::Cure => String::from("Choisir un·e humain·e à soigner"),
     ActionType::Psychoanalyze => String::from("Choisir un·e client·e à psychanalyser"),
+    ActionType::Genomyze => String::from("Choisir un génome à inspecter"),
   }
 }
 
@@ -35,5 +37,6 @@ pub fn get_header_text(action: ActionType) -> String {
     ActionType::Spy => String::from("Choisissez qui vous allez stalker cette nuit:"),
     ActionType::Cure => String::from("Choisissez un·e humain·e à soigner:"),
     ActionType::Psychoanalyze => String::from("Choisissez votre client:"),
+    ActionType::Genomyze => String::from("Choisissez votre cobaye:"),
   }
 }

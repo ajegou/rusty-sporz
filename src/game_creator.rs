@@ -111,6 +111,17 @@ impl <'a> GameCreator<'a> {
       players.push(player);
       next_user_id += 1;
     }
+
+    // Select host and resilient #TODO: when we hava a game config, make this optional
+    let mut potential_host_and_resilient = players.iter_mut()
+      .filter(|player| player.role != Role::Patient0 && player.role != Role::Physician)
+      .collect::<Vec<&mut Player>>();
+    if !self.debug { // No random when debugging
+      potential_host_and_resilient.shuffle(&mut thread_rng());
+    }
+    potential_host_and_resilient.pop().unwrap().host = true;
+    potential_host_and_resilient.pop().unwrap().resilient = true;
+
     Ok(GameStatus::new(self.ship_name.unwrap(), players, self.debug))
   }
 }

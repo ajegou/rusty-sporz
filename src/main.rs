@@ -12,7 +12,7 @@ mod interface;
 mod game_creator;
 use debug::{mock_game_creator, mock_game_vote_tie};
 use menu::{display_player_status_and_actions, display_home_menu};
-use phases::{run_elimination_phase, run_it_phase, run_mutants_phase, run_physicians_phase, run_psychologist_phase, run_spy_phase};
+use phases::{run_elimination_phase, run_it_phase, run_mutants_phase, run_physicians_phase, run_psychologist_phase, run_spy_phase, run_geneticist_phase};
 use std::env;
 use game::{ Game, GameStatus };
 use std::error;
@@ -84,6 +84,7 @@ pub fn run_night(game: &mut dyn Game, interface: &mut Interface) {
   run_physicians_phase(game);
   run_it_phase(game);
   run_psychologist_phase(game);
+  run_geneticist_phase(game);
   run_spy_phase(game);
 
   game.prepare_new_turn();

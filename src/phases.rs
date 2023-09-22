@@ -4,7 +4,7 @@ use crate::{
   message::Message,
   action::ActionType,
   helper::{compute_votes_results, compute_votes_winner},
-  player::{Player, PlayerId}, interface::Interface};
+  player::{Player, PlayerId}, interface::{Interface, colors::Color}};
 
 
 pub fn run_elimination_phase(interface: &mut Interface, game: &mut dyn Game) {
@@ -116,17 +116,25 @@ pub fn run_mutants_phase(game: &mut dyn Game) {
         game.limited_broadcast(Message { // Notify mutants of who was infected
             date: current_date,
             source: String::from("Overmind"),
-            content: String::from(format!("Félicitations, cette nuit vous êtes parvenus à infecter: {mutatee_name}")),
+            content: String::from(format!("Nos spores ont été envoyées dans la cabine de {mutatee_name}, iel devrait bientôt nous rejoindre...")),
         }, & |player: &&mut &mut Player| player.infected);
         let mutate_winner = game.get_mut_player(player_id);
         if mutate_winner.infected == false {
-          mutate_winner.infected = true;
-          mutate_winner.spy_info.was_infected = true;
-          mutate_winner.send_message(Message { // Notify the new mutant that he was infected
-              date: current_date,
-              source: String::from("Overmind"),
-              content: String::from(format!("Bienvenue {}, nous sommes heureuxe de vous compter parmis nous.", mutate_winner.name)),
-          })
+          if mutate_winner.resilient == false {
+            mutate_winner.infected = true;
+            mutate_winner.spy_info.was_infected = true;
+            mutate_winner.send_message(Message { // Notify the new mutant that he was infected
+                date: current_date,
+                source: String::from("Overmind"),
+                content: String::from(format!("Bienvenue {}, nous sommes heureuxe de vous compter parmis nous.", mutate_winner.name)),
+            })
+          } else {
+            mutate_winner.send_message(Message { // Notify the player that he resisted infection
+                date: current_date,
+                source: String::from("Outil d'auto diagnostique"),
+                content: String::from(format!("Bonne nouvelle {}, les mutants ont essayé de vous infecter, mais votre genome vous a protégé!", mutate_winner.name)),
+            })
+          }
         }
     }
 
@@ -213,19 +221,25 @@ pub fn run_physicians_phase(game: &mut dyn Game) {
         source: String::from("Équipe médicale"),
         content: String::from("Vous avez soigné par un traitement par irradiation intense cette nuit, mais la mutation est trop avancée chez vous, cela a échoué"),
       });
-    } else if game.get_player(cured_player).infected {
+    } else if !game.get_player(cured_player).infected {
+      game.get_mut_player(cured_player).send_message(Message {
+        date: current_date,
+        source: String::from("Équipe médicale"),
+        content: String::from("Vous avez été soigné par un traitement anti-mutation cette nuit, bien qu'il n'y ait eu aucune trace de mutations dans votre corps"),
+      });
+    } else if game.get_player(cured_player).host {
+      game.get_mut_player(cured_player).send_message(Message {
+        date: current_date,
+        source: String::from("Overmind"),
+        content: String::from("L'équipe médicale vous a administré un traitement anti-mutation cette nuit, mais votre génome semble résistant au traitement. Félicitations ;-)"),
+      });
+    } else { // infected and not host
       game.get_mut_player(cured_player).infected = false;
       game.get_mut_player(cured_player).spy_info.was_cured = true;
       game.get_mut_player(cured_player).send_message(Message {
         date: current_date,
         source: String::from("Équipe médicale"),
         content: String::from("Vous avez été soigné par un traitement par irradiation intense cette nuit, qui vous à débarrassé de toute trace de mutation"),
-      });
-    } else {
-      game.get_mut_player(cured_player).send_message(Message {
-        date: current_date,
-        source: String::from("Équipe médicale"),
-        content: String::from("Vous avez été soigné par un traitement anti-mutation cette nuit, bien qu'il n'y ait eu aucune trace de mutations dans votre corps"),
       });
     }
   }
@@ -287,6 +301,48 @@ pub fn run_psychologist_phase(game: &mut dyn Game) {
   }
 }
 
+pub fn run_geneticist_phase(game: &mut dyn Game) {
+  let current_date = game.get_date(); // do better
+  for geneticist_id in game.get_player_ids(&|player| player.role == Role::Geneticist) {
+    let geneticist = game.get_player(geneticist_id);
+    if geneticist.paralyzed {
+      game.get_mut_player(geneticist_id).send_message(Message {
+        date: current_date,
+        source: String::from("Outil d'auto diagnostique"),
+        content: String::from("Vous avez été paralysé·e pendant la nuit, vous n'avez donc pu étudier le genome de vos camarades"),
+      });
+    } else {
+      if let Some(target) = geneticist.get_target(&ActionType::Genomyze).copied() {
+        game.get_mut_player(geneticist_id).spy_info.woke_up = true;
+        let target_name = game.get_player(target).name.clone();
+        let host = game.get_player(target).host;
+        let resilient = game.get_player(target).resilient;
+        if host {
+          game.get_mut_player(geneticist_id).send_message(Message {
+            date: current_date,
+            source: String::from("GenoTech v0.17"),
+            content: format!("Votre analyse du génome de {target_name} révèle qu'il est particulièrement sensible à l'infection. {}",
+            Color::FgGreen.color("S'il venait à muter, il ne pourrait être soigné")),
+          });
+        } else if resilient {
+          game.get_mut_player(geneticist_id).send_message(Message {
+            date: current_date,
+            source: String::from("GenoTech v0.17"),
+            content: format!("Votre analyse du génome de {target_name} révèle qu'il est résistant à l'infection. {}",
+              Color::FgGreen.color("Il ne deviendra jamais un mutant")),
+          });
+        } else {
+          game.get_mut_player(geneticist_id).send_message(Message {
+            date: current_date,
+            source: String::from("GenoTech v0.17"),
+            content: format!("Votre analyse du génome de {target_name} révèle qu'il est d'une banalité affligeante. Réponse standard à la mutation"),
+          });
+        }
+      }
+    }
+  }
+}
+
 pub fn run_spy_phase(game: &mut dyn Game) {
   let current_date = game.get_date(); // do better
   for spy_id in game.get_player_ids(&|player| player.role == Role::Spy) {
@@ -339,5 +395,4 @@ pub fn run_spy_phase(game: &mut dyn Game) {
       }
     }
   }
-
 }

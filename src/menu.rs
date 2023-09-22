@@ -41,9 +41,17 @@ pub fn run_action_crew_status(game: &mut dyn Game, interface: &mut Interface) {
   println!("\nStatus de l'équipage:");
   for player in game.get_all_players() {
     if game.debug() {
-      println!("* Membre d'équipage n°{} - {} {}: {}",
+      println!("* Membre d'équipage n°{} - {} {}{} {}: {}",
         player.key,
         player.role,
+        if player.infected { Color::FgRed.color("mutant") } else { Color::FgGreen.color("saint") },
+        if player.host {
+          String::from(" (hôte)")
+        } else if player.resilient {
+          String::from(" (resistant)")
+        } else {
+          String::from("")
+        },
         player.name,
         if player.alive {
           String::from(Color::FgGreen.color("Actif"))
