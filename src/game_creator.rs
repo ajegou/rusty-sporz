@@ -77,7 +77,14 @@ impl <'a> GameCreator<'a> {
     let default_roles = self.get_default_roles();
     let roles = self.custom_roles.as_ref().unwrap_or(&default_roles);
     for role in &all_roles {
-      println!("* {}: {}", role, roles.get(role).unwrap_or(&0));
+      let count = roles.get(role).unwrap_or(&0);
+      if role == &Role::Patient0 && count < &1 {
+        println!("* {}: {} -- Attention, jouer sans {} risque de mener à une partie très courte", role, count, role);
+      } else if role == &Role::Physician && count < &2 {
+        println!("* {}: {} -- Attention, jouer avec moins de 2 {} est très difficile", role, count, role);
+      } else {
+        println!("* {}: {}", role, count);
+      }
     }
     println!();
     
