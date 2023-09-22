@@ -15,7 +15,7 @@ X customized list of roles
 X elimination vote: should be a majority (including white votes), not absolute majority
 * add a special key for dead people to see the full status
 * early end of game when mutants have won -> no more healthy physicians, at least 2 mutants
-* elimination vote -> players should be allowed to update their actions after the vote
+X elimination vote -> players should be allowed to update their actions after the vote
 * in-game explanations
 * fluf
 X backup

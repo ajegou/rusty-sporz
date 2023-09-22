@@ -7,7 +7,7 @@ use crate::{
   player::{Player, PlayerId}, interface::{Interface, colors::Color}};
 
 
-pub fn run_elimination_phase(interface: &mut Interface, game: &mut dyn Game) {
+pub fn run_elimination_phase(interface: &mut Interface, game: &mut dyn Game) -> Option<PlayerId> {
   let current_date = game.get_date(); // do better
 
   // Check votes to eliminate a player
@@ -41,8 +41,8 @@ pub fn run_elimination_phase(interface: &mut Interface, game: &mut dyn Game) {
 
   let dead_crew_member = select_who_dies(interface, game, players_with_max_number);
   match dead_crew_member {
-    Some(player) => {
-      let player = game.get_mut_player(player);
+    Some(player_id) => {
+      let player = game.get_mut_player(player_id);
       player.alive = false;
       player.death_cause = Some(String::from("Aspiré·e accidentellement par le sas tribord"));
 
@@ -65,13 +65,17 @@ pub fn run_elimination_phase(interface: &mut Interface, game: &mut dyn Game) {
         date: current_date,
         source: String::from("Ordinateur Central"),
         content,
-      })
+      });
+      return Some(player_id);
     },
-    None => game.broadcast(Message {
-      date: current_date,
-      source: String::from("Ordinateur Central"),
-      content: String::from("Tout le monde a très bien dormi cette nuit."),
-    }),
+    None => {
+      game.broadcast(Message {
+        date: current_date,
+        source: String::from("Ordinateur Central"),
+        content: String::from("Tout le monde a très bien dormi cette nuit."),
+      });
+      return None;
+    }
   }
 }
 

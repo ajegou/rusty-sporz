@@ -65,7 +65,7 @@ fn start_game (mut game: impl Game, interface: &mut Interface) {
   end_game(game, interface);
 }
 
-pub fn run_night(game: &mut dyn Game, interface: &mut Interface) {
+pub fn run_end_of_day (game: &mut dyn Game, interface: &mut Interface) {
   // Check that everyone played
   if !game.debug() {
     let living_players = game.get_players();
@@ -78,8 +78,18 @@ pub fn run_night(game: &mut dyn Game, interface: &mut Interface) {
       return;
     }
   }
+  let victim = run_elimination_phase(interface, game);
+  game.set_phase_of_day(game::PhaseOfDay::Twilight); // not sure who should control this
+  if let Some(victim) = victim {
+    // Do something, play an alarm, and call the one who died?
+    // Could be fun to also, in any case (dead or not) summon the one with the most votes :p
+  } else { // If no-one died we directly play the night
+    run_night(game, interface);
+  }
+}
 
-  run_elimination_phase(interface, game);
+pub fn run_night(game: &mut dyn Game, interface: &mut Interface) {
+
   run_mutants_phase(game);
   run_physicians_phase(game);
   run_it_phase(game);

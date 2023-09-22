@@ -9,6 +9,12 @@ use crate::message::Message;
 use crate::player::{Player, PlayerId};
 use crate::action::ActionType;
 
+#[derive(PartialEq, Serialize, Deserialize)]
+pub enum PhaseOfDay {
+  Day,
+  Twilight,
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct GameStatus {
   #[serde(skip_deserializing)]
@@ -18,6 +24,7 @@ pub struct GameStatus {
   players: Vec<Player>,
   current_player_id: Option<PlayerId>,
   debug: bool,
+  phase: PhaseOfDay,
 }
 
 impl GameStatus {
@@ -29,6 +36,7 @@ impl GameStatus {
       current_player_id: None,
       debug,
       date: 1,
+      phase: PhaseOfDay::Day,
     }
   }
 
@@ -49,6 +57,8 @@ pub trait Game {
   fn backup(&self, path: &str) -> Result<(), Box<dyn error::Error>>;
   fn get_name(&self) -> &str;
   fn get_date(&self) -> u32;
+  fn get_phase_of_day(&self) -> &PhaseOfDay;
+  fn set_phase_of_day(&mut self, phase: PhaseOfDay);
   fn ended(&self) -> bool;
   fn prepare_new_turn(&mut self);
 
@@ -93,6 +103,14 @@ impl Game for GameStatus {
 
   fn get_date(&self) -> u32 {
     return self.date;
+  }
+
+  fn get_phase_of_day(&self) -> &PhaseOfDay {
+    return &self.phase;
+  }
+
+  fn set_phase_of_day(&mut self, phase: PhaseOfDay) {
+    self.phase = phase;
   }
 
   fn get_player_id_from_key(&self, key: String) -> Option<PlayerId> {
@@ -147,6 +165,7 @@ impl Game for GameStatus {
   fn prepare_new_turn(&mut self) {
     self.players.iter_mut().for_each(|player| player.prepare_new_turn());
     self.date += 1;
+    self.phase = PhaseOfDay::Day;
   }
 
   fn ended(&self) -> bool {
@@ -205,6 +224,14 @@ impl <'b> Game for PlayerTurn<'b> { // Proxy everything to self.game
 
   fn get_date(&self) -> u32 {
     self.game.get_date()
+  }
+
+  fn get_phase_of_day(&self) -> &PhaseOfDay {
+    &self.game.phase
+  }
+
+  fn set_phase_of_day(&mut self, phase: PhaseOfDay) {
+    self.game.set_phase_of_day(phase);
   }
 
   fn get_player_id_from_key(&self, key: String) -> Option<PlayerId> {

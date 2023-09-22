@@ -1,10 +1,14 @@
-use crate::{game::{Game, PlayerGame}, interface::{Interface, colors::Color}, action::{Action, Action::{GeneralAction, UserAction}, ActionType, get_header_text, get_menu_text}, player::{Player, PlayerId}, role::Role, run_night};
+use crate::{game::{Game, PlayerGame, PhaseOfDay}, interface::{Interface, colors::Color}, action::{Action, Action::{GeneralAction, UserAction}, ActionType, get_header_text, get_menu_text}, player::{Player, PlayerId}, role::Role, run_night, run_end_of_day};
 
 use rand::Rng;
 
 pub fn display_home_menu (game: &mut dyn Game, interface: &mut Interface) {
   interface.clear_terminal();
   println!("Bienvenue sur le terminal de control du {}", Color::Bright.color(game.get_name()));
+  match game.get_phase_of_day() {
+    PhaseOfDay::Day => println!("Nous sommes le {}ème jour après détection de l'infection", game.get_date()),
+    PhaseOfDay::Twilight => println!("Nous sommes au crépuscule du {}ème jour après détection de l'infection", game.get_date()),
+}
   let mut actions_list: Vec<Action> = Vec::new();
   actions_list.push(GeneralAction(
     String::from("Identification"),
@@ -14,10 +18,16 @@ pub fn display_home_menu (game: &mut dyn Game, interface: &mut Interface) {
     String::from("Status de l'équipage"),
     run_action_crew_status,
   ));
-  actions_list.push(GeneralAction(
-    String::from("Fin de la journée"),
-    run_night,
-  ));
+  match game.get_phase_of_day() {
+    PhaseOfDay::Day => actions_list.push(GeneralAction(
+      String::from("Fin de la journée"),
+      run_end_of_day,
+    )),
+    PhaseOfDay::Twilight => actions_list.push(GeneralAction(
+      String::from("Passer au jour suivant"),
+      run_night,
+    )),
+  }
   match interface.user_select_action(&actions_list) {
     UserAction(_, _) => panic!(""), // Arghhhh, didn't expect to have to do this :/
     GeneralAction(_, run) => run(game, interface),
@@ -98,6 +108,7 @@ pub fn display_player_status_and_actions (game_status: &mut impl Game, interface
     println!("Vous devez nous aider à contenir la propagation et éliminer les mutants à bord avant qu'il ne soit trop tard!");
   }
   if player.messages.len() > 0 {
+    println!("");
     println!("Messages personnels:");
     for message in &player.messages {
       println!("{}", message.to_string());
@@ -107,7 +118,14 @@ pub fn display_player_status_and_actions (game_status: &mut impl Game, interface
   add_log_out_action(&mut actions_list);
 
   if player.alive {
-    add_action_elimination(game, &mut actions_list);
+    if game.get_phase_of_day() == &PhaseOfDay::Day {
+      // Players are only allowed to vote during the day
+      add_action_elimination(game, &mut actions_list);
+    } else {
+      println!("");
+      print!("Le vote sur l'élimination d'un membre d'équipage à déjà au lieu pour aujoud'hui");
+      println!(" (revenez demain pour une autre chance d'assassiner un de vos amis!)");
+    }
 
     match game.get_current_player().role {
       Role::Patient0 => add_action_patient_0(game, &mut actions_list),
@@ -126,6 +144,7 @@ pub fn display_player_status_and_actions (game_status: &mut impl Game, interface
     }
   }
 
+  println!("");
   match interface.user_select_action(&actions_list) {
     UserAction(_, run) => run(game, interface),
     GeneralAction(_, run) => run(game_status, interface),
