@@ -49,17 +49,22 @@ pub trait Game {
   fn backup(&self, path: &str) -> Result<(), Box<dyn error::Error>>;
   fn get_name(&self) -> &str;
   fn get_date(&self) -> u32;
+  fn ended(&self) -> bool;
+  fn prepare_new_turn(&mut self);
+
   fn get_player_id_from_key(&self, key: String) -> Option<PlayerId>;
+
   fn get_player(&self, id: PlayerId) -> &Player;
   fn get_mut_player(&mut self, id: PlayerId) -> &mut Player;
+
+  fn get_players(&self) -> Vec<&Player>; // returns only alive players
+  fn get_mut_players(&mut self) -> Vec<&mut Player>; // returns only alive players
   fn get_all_players(&self) -> Iter<'_, Player>;
-  fn get_alive_players(&self) -> Vec<&Player>;
-  fn get_mut_alive_players(&mut self) -> Vec<&mut Player>;
+  fn get_player_ids(&self, predicate: &dyn Fn(&&&Player) -> bool) -> Vec<PlayerId>; // returns only alive players
+
   fn broadcast (&mut self, message: Message);
   fn limited_broadcast(&mut self, message: Message, predicate: &dyn Fn(&&mut &mut Player) -> bool);
-  fn get_player_ids(&self, predicate: &dyn Fn(&&&Player) -> bool) -> Vec<PlayerId>;
-  fn prepare_new_turn(&mut self);
-  fn ended(&self) -> bool;
+
   fn get_current_player_id(&self) -> Option<PlayerId>;
   fn set_current_player_id(&mut self, player: Option<PlayerId>);
   fn get_player_game<'a> (&'a mut self, current_player_id: PlayerId) -> PlayerTurn<'a>;
@@ -109,14 +114,14 @@ impl Game for GameStatus {
     return self.players.iter();
   }
 
-  fn get_alive_players(&self) -> Vec<&Player> {
+  fn get_players(&self) -> Vec<&Player> {
     return self.players
       .iter()
       .filter(|player| player.alive)
       .collect();
   }
 
-  fn get_mut_alive_players(&mut self) -> Vec<&mut Player> {
+  fn get_mut_players(&mut self) -> Vec<&mut Player> {
     return self.players
       .iter_mut()
       .filter(|player| player.alive)
@@ -130,13 +135,13 @@ impl Game for GameStatus {
   }
 
   fn limited_broadcast(&mut self, message: Message, predicate: &dyn Fn(&&mut &mut Player) -> bool) {
-    for player in self.get_mut_alive_players().iter_mut().filter(predicate) {
+    for player in self.get_mut_players().iter_mut().filter(predicate) {
       player.send_message(message.clone());
     }
   }
 
   fn get_player_ids(&self, predicate: &dyn Fn(&&&Player) -> bool) -> Vec<PlayerId> {
-    return self.get_alive_players().iter().filter(predicate).map(|player| player.id).collect();
+    return self.get_players().iter().filter(predicate).map(|player| player.id).collect();
   }
 
   fn prepare_new_turn(&mut self) {
@@ -145,8 +150,8 @@ impl Game for GameStatus {
   }
 
   fn ended(&self) -> bool {
-    let healthy_players = self.get_alive_players().iter().filter(|player| !player.infected).count();
-    healthy_players == 0 || healthy_players == self.get_alive_players().len()
+    let healthy_players = self.get_players().iter().filter(|player| !player.infected).count();
+    healthy_players == 0 || healthy_players == self.get_players().len()
   }
 
   fn get_current_player_id(&self) -> Option<PlayerId> {
@@ -218,12 +223,12 @@ impl <'b> Game for PlayerTurn<'b> { // Proxy everything to self.game
     self.game.get_all_players()
   }
 
-  fn get_alive_players(&self) -> Vec<&Player> {
-    self.game.get_alive_players()
+  fn get_players(&self) -> Vec<&Player> {
+    self.game.get_players()
   }
 
-  fn get_mut_alive_players(&mut self) -> Vec<&mut Player> {
-    self.game.get_mut_alive_players()
+  fn get_mut_players(&mut self) -> Vec<&mut Player> {
+    self.game.get_mut_players()
   }
 
   fn broadcast (&mut self, message: Message) {

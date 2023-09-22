@@ -12,11 +12,11 @@ pub fn run_elimination_phase(interface: &mut Interface, game: &mut dyn Game) {
 
   // Check votes to eliminate a player
   let elimination_results = compute_votes_results(
-    game.get_alive_players().iter(),
+    game.get_players().iter(),
     ActionType::Eliminate);
   let mut number_of_votes: Vec<usize> = elimination_results.values().map(|count|*count).collect();
 
-  let white_votes: usize = game.get_alive_players().len() - number_of_votes.iter().sum::<usize>();
+  let white_votes: usize = game.get_players().len() - number_of_votes.iter().sum::<usize>();
   number_of_votes.push(white_votes);
   let max_number_of_votes = number_of_votes.iter().max().unwrap(); // cannot be empty
   
@@ -94,7 +94,7 @@ pub fn run_mutants_phase(game: &mut dyn Game) {
 
     // Notify the mutants of who the other mutants are
     // The newly converted mutant will only get that information at the next night
-    let mutants_names = game.get_alive_players().iter()
+    let mutants_names = game.get_players().iter()
         .filter_map(|player| if player.infected { Some(player.name.clone())} else { None })
         .collect::<Vec<String>>().join(" ");
     game.limited_broadcast(Message {
@@ -103,13 +103,13 @@ pub fn run_mutants_phase(game: &mut dyn Game) {
         content: String::from(format!("Lors du dernier crépuscule, les mutant·e·s étaient: [{mutants_names}]")),
     }, & |player: &&mut &mut Player| player.infected);
 
-    for player in game.get_mut_alive_players().iter_mut().filter(|player| player.infected) {
+    for player in game.get_mut_players().iter_mut().filter(|player| player.infected) {
       player.spy_info.woke_up = true;
     }
 
     // Mutate one player
     let mutate_results = compute_votes_winner(
-        game.get_alive_players().iter().filter(|player| player.infected),
+        game.get_players().iter().filter(|player| player.infected),
         ActionType::Infect);
     if let Some((player_id, _)) = mutate_results {
         let mutatee_name = &game.get_player(player_id).name;
@@ -132,7 +132,7 @@ pub fn run_mutants_phase(game: &mut dyn Game) {
 
     // Paralyze one player
     let paralyze_result = compute_votes_winner(
-        game.get_alive_players().iter().filter(|player| player.infected), 
+        game.get_players().iter().filter(|player| player.infected), 
         ActionType::Paralyze);
     if let Some((player_id, _)) = paralyze_result {
         let paralized_name = &game.get_player(player_id).name;
@@ -158,7 +158,7 @@ pub fn run_physicians_phase(game: &mut dyn Game) {
   let current_date = game.get_date(); // do better
 
   // Cure one player
-  let alive_players = game.get_alive_players();
+  let alive_players = game.get_players();
   let physicians = alive_players
     .iter()
     .filter(|player| player.role == Role::Physician);
@@ -247,8 +247,8 @@ pub fn run_it_phase(game: &mut dyn Game) {
   let current_date = game.get_date(); // do better
 
   // Tell the IT guy how many mutants are in play
-  let infected_players = game.get_alive_players().iter().filter(|player| player.infected).count();
-  for player in game.get_mut_alive_players() {
+  let infected_players = game.get_players().iter().filter(|player| player.infected).count();
+  for player in game.get_mut_players() {
     if player.role == Role::ITEngineer && !player.paralyzed {
       player.spy_info.woke_up = true;
       player.send_message(Message {

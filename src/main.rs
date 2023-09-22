@@ -68,7 +68,7 @@ fn start_game (mut game: impl Game, interface: &mut Interface) {
 pub fn run_night(game: &mut dyn Game, interface: &mut Interface) {
   // Check that everyone played
   if !game.debug() {
-    let living_players = game.get_alive_players();
+    let living_players = game.get_players();
     let missing_players = living_players
       .iter()
       .filter_map(|player| if player.has_connected_today { None } else { Some(&player.name) })
@@ -104,7 +104,7 @@ fn backup (game: &mut dyn Game, interface: &mut Interface) {
 fn end_game(game: impl Game, interface: &mut Interface) {
   interface.clear_terminal();
 
-  let healthy_players = game.get_alive_players().iter().filter(|player| !player.infected).count();
+  let healthy_players = game.get_players().iter().filter(|player| !player.infected).count();
   if healthy_players == 0 {
     println!("===== Victoire des mutants =====");
     println!("Le {} est maintenant aux mains des mutants et, avec la coopération des centaines de passagers en sommeil, essaimera la mutation dans la galaxie.", Color::Bright.color(game.get_name()));

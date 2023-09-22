@@ -80,7 +80,7 @@ pub fn display_player_status_and_actions (game_status: &mut impl Game, interface
   };
   println!("Bienvenue {}, vous êtes un {} {}", player.name, player.role, status);
   if player.role == Role::Physician { //Physicians know the list of other physicians
-    let physician_names: Vec<String> = game.get_alive_players().iter()
+    let physician_names: Vec<String> = game.get_players().iter()
       .filter_map(|player| if player.role == Role::Physician { Some(player.name.clone()) } else { None }).collect();
     println!("* Membres de l'équipe médicale: [{}]", physician_names.join(", "));
   }
@@ -232,7 +232,7 @@ pub fn run_target_action(game: &mut dyn PlayerGame, interface: &mut Interface, a
     Some(target) => println!("{} [{}]", get_header_text(action), target.name),
     None => println!("{}", get_header_text(action)),
   }
-  let targets: Vec<&Player> = game.get_alive_players();
+  let targets: Vec<&Player> = game.get_players();
   let selected = interface.user_select_target(&targets);
   game.set_current_target(&action, selected.map(|player| player.id));
 }

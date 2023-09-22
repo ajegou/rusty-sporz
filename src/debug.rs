@@ -29,7 +29,7 @@ pub fn mock_game_creator (interface: &mut Interface) {
 pub fn mock_game_vote_tie (interface: &mut Interface, game: &mut dyn Game) { // create votes to have a tie
   // This only works if the options (here the names of the players to vote for) are always proposed in the same order
   let mut inputs = Vec::new();
-  let get_player_key = |name: &str| &game.get_alive_players().iter().find(|player| player.name == name).unwrap().key;
+  let get_player_key = |name: &str| &game.get_players().iter().find(|player| player.name == name).unwrap().key;
   let mut idx = 0;
   for name in DEBUG_PLAYER_NAMES {
     let player_key = get_player_key(name);
