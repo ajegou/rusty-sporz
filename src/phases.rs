@@ -177,14 +177,14 @@ pub fn run_physicians_phase(game: &mut dyn Game) {
       game.get_mut_player(cured_player).send_message(Message {
         date: current_date,
         source: String::from("Équipe médicale"),
-        content: String::from("Vous avez subit un traitement par irradiation intense cette nuit, mais la mutation est trop avancée chez vous, cela a échoué"),
+        content: String::from("Vous avez soigné par un traitement par irradiation intense cette nuit, mais la mutation est trop avancée chez vous, cela a échoué"),
       });
     } else if game.get_player(cured_player).infected {
       game.get_mut_player(cured_player).infected = false;
       game.get_mut_player(cured_player).send_message(Message {
         date: current_date,
         source: String::from("Équipe médicale"),
-        content: String::from("Vous avez subit un traitement par irradiation intense cette nuit, qui vous à débarrassé de toute trace de mutation"),
+        content: String::from("Vous avez été soigné par un traitement par irradiation intense cette nuit, qui vous à débarrassé de toute trace de mutation"),
       });
     } else {
       game.get_mut_player(cured_player).send_message(Message {
