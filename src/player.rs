@@ -40,6 +40,7 @@ pub struct Player {
   pub paralyzed: bool,
   pub death_cause: Option<String>,
   pub has_connected_today: bool,
+  pub auto_cure_physician: bool,
   
   // daily data
   pub actions: HashMap<ActionType, PlayerId>,
@@ -67,6 +68,7 @@ impl Player {
       infected,
       paralyzed: false,
       death_cause: None,
+      auto_cure_physician: true,
       messages: Vec::new(),
       actions: HashMap::new(),
       has_connected_today: false,

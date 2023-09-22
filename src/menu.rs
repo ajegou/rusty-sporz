@@ -168,12 +168,23 @@ pub fn add_action_psychologist(game: &mut dyn PlayerGame, actions_list: &mut Vec
 
 pub fn add_action_physician(game: &mut dyn PlayerGame, actions_list: &mut Vec<Action>) {
   if !game.get_current_player().infected { // An infected physician cannot cure
-    add_target_action(
+    add_target_action( // Action to select some to cure
       game,
       actions_list,
       ActionType::Cure,
       |game: &mut dyn PlayerGame, interface: &mut Interface| run_target_action(game, interface, ActionType::Cure),
     );
+    actions_list.push(Action::UserAction( // Action to toggle auto-cure of other physicians
+      if game.get_current_player().auto_cure_physician {
+        format!("Désactiver le soin automatique des autres médecins [{}]", Color::FgGreen.color("Activé"))
+      } else {
+        format!("Activer le soin automatique des autres médecins [{}]", Color::FgRed.color("Désactivé"))
+      },
+      |game: &mut dyn PlayerGame, _interface: &mut Interface| {
+        let current_player = game.get_mut_current_player();
+        current_player.auto_cure_physician = !current_player.auto_cure_physician;
+      }
+    ));
   }
 }
 

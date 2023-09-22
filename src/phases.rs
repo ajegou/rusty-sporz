@@ -158,36 +158,54 @@ pub fn run_physicians_phase(game: &mut dyn Game) {
   let current_date = game.get_date(); // do better
 
   // Cure one player
-  let mut alive_players = game.get_mut_alive_players();
+  let alive_players = game.get_alive_players();
   let physicians = alive_players
-    .iter_mut()
+    .iter()
     .filter(|player| player.role == Role::Physician);
   let mut cured_players = Vec::new();
   let mut active_physicians = Vec::new();
   let mut active_physician_names = Vec::new();
+  let mut disabled_physicians = Vec::new();
+
   for physician in physicians {
     if physician.infected || physician.paralyzed {
-      physician.send_message(Message {
-        date: current_date,
-        source: String::from("Outil d'auto diagnostique"),
-        content: if physician.infected {
-          String::from("Vous êtes avez été infecté·e pendant la nuit, vous n'avez donc pu participer aux soins")
-        } else {
-          String::from("Vous avez été·e paralysé·e pendant la nuit, vous n'avez donc pu participer aux soins")
-        }
-      });
+      disabled_physicians.push(physician.id);
     } else {
-      if let Some(target) = physician.actions.get(&ActionType::Cure) {
-        cured_players.push(*target);
-      }
-      physician.spy_info.woke_up = true;
       active_physicians.push(physician.id);
-      active_physician_names.push(physician.name.clone());
     }
   }
 
+  for disabled_physician in disabled_physicians.iter() {
+    let disabled_physician = game.get_mut_player(*disabled_physician);
+    disabled_physician.send_message(Message {
+      date: current_date,
+      source: String::from("Outil d'auto diagnostique"),
+      content: if disabled_physician.infected {
+        String::from("Vous êtes infecté·e, vous n'avez donc pas participé aux soins")
+      } else {
+        String::from("Vous avez été·e paralysé·e pendant la nuit, vous n'avez donc pu participer aux soins")
+      }
+    });
+  }
+
+  for active_physician in active_physicians.iter() {
+    let active_physician = game.get_mut_player(*active_physician);
+    active_physician.spy_info.woke_up = true;
+    active_physician_names.push(active_physician.name.clone());
+    if active_physician.auto_cure_physician {
+      if let Some(target) = disabled_physicians.pop() {
+        cured_players.push(target);
+        continue; // not great, but avoids is_empty() + pop().unwrap()
+      }
+    }
+    if let Some(target) = active_physician.actions.get(&ActionType::Cure) {
+      cured_players.push(*target);
+    }
+  }
+
+  // Cure the players, and warn them
   let mut cured_players_names = Vec::new();
-  for cured_player in cured_players { // Send messages to the active medical team about who was cured
+  for cured_player in cured_players {
     cured_players_names.push(game.get_player(cured_player).name.clone());
     if game.get_player(cured_player).role == Role::Patient0 {
       game.get_mut_player(cured_player).send_message(Message {
@@ -211,10 +229,13 @@ pub fn run_physicians_phase(game: &mut dyn Game) {
       });
     }
   }
+
+  // Send messages to the active medical team about who was cured
   let active_physician_names = active_physician_names.join(" ");
   let cured_players_names = cured_players_names.join(" ");
   for active_physician in active_physicians {
-    game.get_mut_player(active_physician).send_message(Message {
+    let active_physician = game.get_mut_player(active_physician);
+    active_physician.send_message(Message {
       date: current_date,
       source: String::from("Équipe médicale"),
       content: String::from(format!("L'équipe médicale opérationelle de la nuit précédente ({}) est parvenue à soigner: [{}]", active_physician_names, cured_players_names)),
