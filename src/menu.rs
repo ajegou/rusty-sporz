@@ -215,8 +215,13 @@ pub fn add_action_physician(game: &mut dyn PlayerGame, actions_list: &mut Vec<Ac
   }
 }
 
-pub fn add_action_geneticist(_game: &mut dyn PlayerGame, _actions_list: &mut Vec<Action>) {
-  todo!();
+pub fn add_action_geneticist(game: &mut dyn PlayerGame, actions_list: &mut Vec<Action>) {
+  add_target_action(
+    game,
+    actions_list,
+    ActionType::Genomyze,
+    |game: &mut dyn PlayerGame, interface: &mut Interface| run_target_action(game, interface, ActionType::Genomyze),
+  );
 }
 
 pub fn add_action_it_engineer(_game: &mut dyn PlayerGame, _actions_list: &mut Vec<Action>) {}

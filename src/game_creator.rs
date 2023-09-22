@@ -168,6 +168,7 @@ impl <'a> GameCreator<'a> {
 
   pub fn create_game (self) -> Result<GameStatus, Box<dyn error::Error>> {
     let mut roles = self.get_roles();
+    let has_geneticist = roles.contains(&Role::Geneticist);
 
     let mut next_user_id = 0;
     let mut players: Vec<Player> = Vec::new();
@@ -178,15 +179,16 @@ impl <'a> GameCreator<'a> {
       next_user_id += 1;
     }
 
-    // Select host and resilient #TODO: when we hava a game config, make this optional
-    let mut potential_host_and_resilient = players.iter_mut()
-      .filter(|player| player.role != Role::Patient0 && player.role != Role::Physician)
-      .collect::<Vec<&mut Player>>();
-    if !self.debug { // No random when debugging
-      potential_host_and_resilient.shuffle(&mut thread_rng());
+    if has_geneticist {
+      let mut potential_host_and_resilient = players.iter_mut()
+        .filter(|player| player.role != Role::Patient0 && player.role != Role::Physician)
+        .collect::<Vec<&mut Player>>();
+      if !self.debug { // No random when debugging
+        potential_host_and_resilient.shuffle(&mut thread_rng());
+      }
+      potential_host_and_resilient.pop().unwrap().host = true;
+      potential_host_and_resilient.pop().unwrap().resilient = true;
     }
-    potential_host_and_resilient.pop().unwrap().host = true;
-    potential_host_and_resilient.pop().unwrap().resilient = true;
 
     Ok(GameStatus::new(self.ship_name.unwrap(), players, self.debug))
   }

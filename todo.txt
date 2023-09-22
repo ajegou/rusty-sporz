@@ -22,4 +22,4 @@ X backup
 * proper arguments parsing
 * clean up main.rs
 * somehow make a config with:
-  * genomes + geneticist
+  X genomes + geneticist

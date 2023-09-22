@@ -332,7 +332,7 @@ pub fn run_geneticist_phase(game: &mut dyn Game) {
             date: current_date,
             source: String::from("GenoTech v0.17"),
             content: format!("Votre analyse du génome de {target_name} révèle qu'il est particulièrement sensible à l'infection. {}",
-            Color::FgGreen.color("S'il venait à muter, il ne pourrait être soigné")),
+            Color::FgRed.color("S'il venait à muter, il ne pourrait être soigné")),
           });
         } else if resilient {
           game.get_mut_player(geneticist_id).send_message(Message {
