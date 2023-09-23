@@ -5,7 +5,7 @@ X hacker
 X physician: allow activating an option to cure (or kill) the other physician is he doesn't wake up
   * add the kill variant
 * physician: make the choice a list (in case both targeted the same player)
-* physician: allow killing 1 instead of curing x
+X physician: allow killing 1 instead of curing x
 X physician: know who is the other physician at the beginning of the game
 X mutants: allow killing instead of mutating
 * election of leader -> need an ordered list

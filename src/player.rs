@@ -43,6 +43,8 @@ pub struct Player {
   pub death_date: Option<u32>,
   pub death_cause: Option<String>,
   pub auto_cure_physician: bool,
+  pub auto_kill_physician: bool,
+  pub physician_kill: bool,
   pub mutant_kill: bool,
 
   // daily data
@@ -77,6 +79,8 @@ impl Player {
       death_date: None,
       death_cause: None,
       auto_cure_physician: true,
+      auto_kill_physician: false,
+      physician_kill: false,
       mutant_kill: false,
       messages: Vec::new(),
       has_connected_today: false,
@@ -91,6 +95,7 @@ impl Player {
     self.has_connected_today = false;
     self.spy_info = SpyData{ ..Default::default() };
     self.hacker_target = None;
+    self.physician_kill = false;
     self.mutant_kill = false;
   }
 

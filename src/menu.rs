@@ -226,13 +226,33 @@ pub fn add_action_physician(game: &mut dyn PlayerGame, actions_list: &mut Vec<Ac
     );
     actions_list.push(Action::UserAction( // Action to toggle auto-cure of other physicians
       if game.get_current_player().auto_cure_physician {
-        format!("Désactiver le soin automatique des autres médecins [{}]", Color::FgGreen.color("Activé"))
+        format!("Que faire des médecins inactifs: [{}, {}, {}]", Color::Underscore.color(Color::FgGreen.color("Soigner").as_str()), "Tuer", "Rien")
+      } else if game.get_current_player().auto_kill_physician {
+        format!("Que faire des médecins inactifs: [{}, {}, {}]", "Soigner", Color::Underscore.color(Color::FgRed.color("Tuer").as_str()), "Rien")
       } else {
-        format!("Activer le soin automatique des autres médecins [{}]", Color::FgRed.color("Désactivé"))
+        format!("Que faire des médecins inactifs: [{}, {}, {}]", "Soigner", "Tuer", Color::Underscore.color("Rien"))
       },
       |game: &mut dyn PlayerGame, _interface: &mut Interface| {
         let current_player = game.get_mut_current_player();
-        current_player.auto_cure_physician = !current_player.auto_cure_physician;
+        if current_player.auto_cure_physician {
+          current_player.auto_cure_physician = false;
+          current_player.auto_kill_physician = true;
+        } else if current_player.auto_kill_physician {
+          current_player.auto_kill_physician = false
+        } else {
+          current_player.auto_cure_physician = true;
+        }
+      }
+    ));
+    actions_list.push(Action::UserAction( // Action to choose between curing or killing
+      if game.get_current_player().physician_kill {
+        format!("Que faire de la cible [{}, {}]", "Soigner", Color::Underscore.color(Color::FgRed.color("Tuer").as_str()))
+      } else {
+        format!("Que faire de la cible [{}, {}]", Color::Underscore.color(Color::FgGreen.color("Soigner").as_str()), "Tuer")
+      },
+      |game: &mut dyn PlayerGame, _interface: &mut Interface| {
+        let current_player = game.get_mut_current_player();
+        current_player.physician_kill = !current_player.physician_kill;
       }
     ));
   }

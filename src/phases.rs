@@ -1,3 +1,5 @@
+use rand::seq::SliceRandom;
+
 use crate::{
   game::Game,
   role::Role,
@@ -7,6 +9,7 @@ use crate::{
   player::{Player, PlayerId}, interface::{Interface, colors::Color}, menu::{display_menu_for_eliminated_player, display_menu_for_no_eliminated_player}};
 
 use std::time::Duration;
+use rand::thread_rng;
 
 pub fn run_elimination_phase(interface: &mut Interface, game: &mut dyn Game) -> Option<PlayerId> {
   let current_date = game.get_date(); // do better
@@ -189,25 +192,37 @@ pub fn run_mutants_phase(game: &mut dyn Game) -> Option<PlayerId> {
   return None;
 }
 
-
+// Warning: As of now, this doesn't work great if we have more than 2 physicians in game
+// for example, if someone has an auto_kill_physician, it will bypass all other votes
+// and if several have an auto_kill_physician, only the last one will be considered
 pub fn run_physicians_phase(game: &mut dyn Game) -> Option<PlayerId> {
   // Cure one player
   let alive_players = game.get_players();
   let physicians = alive_players
     .iter()
     .filter(|player| player.role == Role::Physician);
+
+  let mut killed_player = None;
   let mut cured_players = Vec::new();
   let mut active_physicians = Vec::new();
   let mut active_physician_names = Vec::new();
   let mut disabled_physicians = Vec::new();
+
+  let mut kill = 0;
 
   for physician in physicians {
     if physician.infected || physician.paralyzed {
       disabled_physicians.push(physician.id);
     } else {
       active_physicians.push(physician.id);
+      if physician.physician_kill {
+        kill += 1;
+      } else {
+        kill -= 1;
+      }
     }
   }
+  let mut kill = kill > 0; // majority
 
   for disabled_physician in disabled_physicians.iter() {
     let infected = game.get_player(*disabled_physician).infected;
@@ -229,47 +244,75 @@ pub fn run_physicians_phase(game: &mut dyn Game) -> Option<PlayerId> {
         cured_players.push(target);
         continue; // not great, but avoids is_empty() + pop().unwrap()
       }
+    } else if active_physician.auto_kill_physician {
+      if let Some(target) = disabled_physicians.pop() {
+        killed_player = Some(target);
+        kill = true;
+        continue; // not great, but avoids is_empty() + pop().unwrap()
+      }
     }
     if let Some(target) = active_physician.actions.get(&ActionType::Cure) {
       cured_players.push(*target);
     }
   }
 
-  // Cure the players, and warn them
   let mut cured_players_names = Vec::new();
-  for cured_player in cured_players {
-    cured_players_names.push(game.get_player(cured_player).name.clone());
-    if game.get_player(cured_player).role == Role::Patient0 {
-      game.send_message(cured_player,
-        String::from("Équipe médicale"),
-        String::from("Vous avez soigné par un traitement par irradiation intense cette nuit, mais la mutation est trop avancée chez vous, cela a échoué"));
-    } else if !game.get_player(cured_player).infected {
-      game.send_message(cured_player,
-        String::from("Équipe médicale"),
-        String::from("Vous avez été soigné par un traitement anti-mutation cette nuit, bien qu'il n'y ait eu aucune trace de mutations dans votre corps"));
-    } else if game.get_player(cured_player).host {
-      game.send_message(cured_player,
-        String::from("Overmind"),
-        String::from("L'équipe médicale vous a administré un traitement anti-mutation cette nuit, mais votre génome semble résistant au traitement. Félicitations ;-)"));
-    } else { // infected and not host
-      game.get_mut_player(cured_player).infected = false;
-      game.get_mut_player(cured_player).spy_info.was_cured = true;
-      game.send_message(cured_player,
-        String::from("Équipe médicale"),
-        String::from("Vous avez été soigné par un traitement par irradiation intense cette nuit, qui vous à débarrassé de toute trace de mutation"));
+  if !kill {
+    // Cure the players, and warn them
+    for cured_player in cured_players {
+      cured_players_names.push(game.get_player(cured_player).name.clone());
+      if game.get_player(cured_player).role == Role::Patient0 {
+        game.send_message(cured_player,
+          String::from("Équipe médicale"),
+          String::from("Vous avez soigné par un traitement par irradiation intense cette nuit, mais la mutation est trop avancée chez vous, cela a échoué"));
+      } else if !game.get_player(cured_player).infected {
+        game.send_message(cured_player,
+          String::from("Équipe médicale"),
+          String::from("Vous avez été soigné par un traitement anti-mutation cette nuit, bien qu'il n'y ait eu aucune trace de mutations dans votre corps"));
+      } else if game.get_player(cured_player).host {
+        game.send_message(cured_player,
+          String::from("Overmind"),
+          String::from("L'équipe médicale vous a administré un traitement anti-mutation cette nuit, mais votre génome semble résistant au traitement. Félicitations ;-)"));
+      } else { // infected and not host
+        game.get_mut_player(cured_player).infected = false;
+        game.get_mut_player(cured_player).spy_info.was_cured = true;
+        game.send_message(cured_player,
+          String::from("Équipe médicale"),
+          String::from("Vous avez été soigné par un traitement par irradiation intense cette nuit, qui vous à débarrassé de toute trace de mutation"));
+      }
     }
+  } else {
+    if killed_player.is_none() {
+      cured_players.shuffle(&mut thread_rng());
+      killed_player = cured_players.pop();
+    }
+  }
+
+  if let Some(target) = killed_player {
+    let current_date = game.get_date();
+    game.get_mut_player(target).die(current_date, String::from("Carbonisé·e dans la douche"));
+    game.send_message(target,
+      String::from("Équipe médicale"),
+      String::from("Le CHSCT à décidé que votre hygiène corporelle n'était pas compatible avec la survie du vaisseau, désolé."));
   }
 
   // Send messages to the active medical team about who was cured
   let active_physician_names = active_physician_names.join(" ");
   let cured_players_names = cured_players_names.join(" ");
   for active_physician in active_physicians {
-    game.send_message(active_physician, 
-      String::from("Équipe médicale"),
-      String::from(format!("L'équipe médicale opérationelle de la nuit précédente ({}) est parvenue à soigner: [{}]", active_physician_names, cured_players_names)));
+    if let Some(killed) = killed_player {
+      let killed_player_name = game.get_player(killed).name.clone();
+      game.send_message(active_physician, 
+        String::from("Équipe médicale"),
+        String::from(format!("L'équipe médicale opérationelle de la nuit précédente ({}) est parvenue à tuer: [{}]", active_physician_names, killed_player_name)));
+    } else {
+      game.send_message(active_physician, 
+        String::from("Équipe médicale"),
+        String::from(format!("L'équipe médicale opérationelle de la nuit précédente ({}) est parvenue à soigner: [{}]", active_physician_names, cured_players_names)));
+    }
   }
 
-  return None;
+  return killed_player;
 }
 
 pub fn run_it_phase(game: &mut dyn Game) {
