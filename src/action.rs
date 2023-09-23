@@ -20,7 +20,7 @@ pub enum ActionType {
 pub fn get_menu_text(action: ActionType) -> String {
   match action {
     ActionType::Eliminate => String::from("Voter pour éliminer un·e de vos ami·e·s"),
-    ActionType::Infect => String::from("Voter pour infecter un·e de ces sales humain·e·s"),
+    ActionType::Infect => String::from("Voter pour infecter ou tuer un·e de ces sales humain·e·s"),
     ActionType::Paralyze => String::from("Voter pour paralyser un·e de ces sales humain·e·s"),
     ActionType::Spy => String::from("Surveiller un·e individu·e"),
     ActionType::Cure => String::from("Choisir un·e humain·e à soigner"),

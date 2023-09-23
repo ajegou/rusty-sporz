@@ -104,70 +104,89 @@ fn select_who_dies (interface: &mut Interface, game: &dyn Game, options: Vec<Opt
 pub fn run_mutants_phase(game: &mut dyn Game) -> Option<PlayerId> {
   let current_date = game.get_date(); // do better
 
-    // Notify the mutants of who the other mutants are
-    // The newly converted mutant will only get that information at the next night
-    let mutants_names = game.get_players().iter()
-        .filter_map(|player| if player.infected { Some(player.name.clone())} else { None })
-        .collect::<Vec<String>>().join(" ");
-    game.limited_broadcast(Message {
-        date: current_date,
-        source: String::from("Overmind"),
-        content: String::from(format!("Lors du dernier crépuscule, les mutant·e·s étaient: [{mutants_names}]")),
-    }, & |player: &&mut &mut Player| player.infected);
+  // Notify the mutants of who the other mutants are
+  // The newly converted mutant will only get that information at the next night
+  let mutants_names = game.get_players().iter()
+      .filter_map(|player| if player.infected { Some(player.name.clone())} else { None })
+      .collect::<Vec<String>>().join(" ");
+  game.limited_broadcast(Message {
+      date: current_date,
+      source: String::from("Overmind"),
+      content: String::from(format!("Lors du dernier crépuscule, les mutant·e·s étaient: [{mutants_names}]")),
+  }, & |player: &&mut &mut Player| player.infected);
 
-    for player in game.get_mut_players().iter_mut().filter(|player| player.infected) {
-      player.spy_info.woke_up = true;
-    }
+  for player in game.get_mut_players().iter_mut().filter(|player| player.infected) {
+    player.spy_info.woke_up = true;
+  }
 
-    // Mutate one player
-    let mutate_results = compute_votes_winner(
-        game.get_players().iter().filter(|player| player.infected),
-        ActionType::Infect);
-    if let Some((mutatee_id, _)) = mutate_results {
-        let mutatee_name = game.get_player(mutatee_id).name.clone();
-        game.limited_broadcast(Message { // Notify mutants of who was infected
-            date: current_date,
-            source: String::from("Overmind"),
-            content: String::from(format!("Nos spores ont été envoyées dans la cabine de {mutatee_name}, iel devrait bientôt nous rejoindre...")),
-        }, & |player: &&mut &mut Player| player.infected);
-        if game.get_player(mutatee_id).infected == false {
-          if game.get_player(mutatee_id).resilient == false {
-            game.get_mut_player(mutatee_id).infected = true;
-            game.get_mut_player(mutatee_id).spy_info.was_infected = true;
-            game.send_message(mutatee_id, // Notify the new mutant that he was infected
-              String::from("Overmind"),
-              format!("Bienvenue {}, nous sommes heureuxe de vous compter parmis nous.", mutatee_name));
-          } else {
-            game.send_message(mutatee_id,
-              String::from("Outil d'auto diagnostique"),
-              format!("Bonne nouvelle {}, les mutants ont essayé de vous infecter, mais votre genome vous a protégé!", mutatee_name));
-          }
+  // Mutate or kill one player
+  let kill = game.get_players().iter()
+    .filter(|player| player.infected)
+    .fold(0, |mut count, player| {
+      if player.mutant_kill {
+        count += 1;
+      } else {
+        count -= 1;
+      }
+      count
+    }) > 0;
+  let mutate_results = compute_votes_winner(
+      game.get_players().iter().filter(|player| player.infected),
+      ActionType::Infect);
+  if let Some((target_id, _)) = mutate_results {
+    let target_name = game.get_player(target_id).name.clone();
+    if kill {
+      game.get_mut_player(target_id).die(current_date, String::from("Carbonisé·e dans la douche"));
+    } else {
+      game.limited_broadcast(Message { // Notify mutants of who was infected
+          date: current_date,
+          source: String::from("Overmind"),
+          content: String::from(format!("Nos spores ont été envoyées dans la cabine de {target_name}, iel devrait bientôt nous rejoindre...")),
+      }, & |player: &&mut &mut Player| player.infected);
+      if game.get_player(target_id).infected == false {
+        if game.get_player(target_id).resilient == false {
+          game.get_mut_player(target_id).infected = true;
+          game.get_mut_player(target_id).spy_info.was_infected = true;
+          game.send_message(target_id, // Notify the new mutant that he was infected
+            String::from("Overmind"),
+            format!("Bienvenue {}, nous sommes heureuxe de vous compter parmis nous.", target_name));
+        } else {
+          game.send_message(target_id,
+            String::from("Outil d'auto diagnostique"),
+            format!("Bonne nouvelle {}, les mutants ont essayé de vous infecter, mais votre genome vous a protégé!", target_name));
         }
+      }
     }
+  }
 
-    // Paralyze one player
-    let paralyze_result = compute_votes_winner(
-        game.get_players().iter().filter(|player| player.infected),
-        ActionType::Paralyze);
-    if let Some((player_id, _)) = paralyze_result {
-        let paralized_name = &game.get_player(player_id).name;
-        game.limited_broadcast(Message { // Notify mutants of who was paralysed
-            date: current_date,
-            source: String::from("Overmind"),
-            content: String::from(format!("Félicitations, cette nuit vous êtes parvenus à paralyser: {paralized_name}")),
-        }, & |player: &&mut &mut Player| player.infected);
+  // Paralyze one player
+  let paralyze_result = compute_votes_winner(
+      game.get_players().iter().filter(|player| player.infected),
+      ActionType::Paralyze);
+  if let Some((player_id, _)) = paralyze_result {
+      let paralized_name = &game.get_player(player_id).name;
+      game.limited_broadcast(Message { // Notify mutants of who was paralysed
+          date: current_date,
+          source: String::from("Overmind"),
+          content: String::from(format!("Félicitations, cette nuit vous êtes parvenus à paralyser: {paralized_name}")),
+      }, & |player: &&mut &mut Player| player.infected);
 
-        let paralyzed_player = game.get_mut_player(player_id);
-        paralyzed_player.paralyzed = true;
-        paralyzed_player.spy_info.was_paralyzed = true;
-        paralyzed_player.messages.push(Message {
-            date: current_date,
-            source: String::from("Outil d'auto diagnostique"),
-            content: String::from("Vous avez été paralysé pendant la nuit, vous n'avez donc pas pu faire d'action spéciale"),
-        })
+      let paralyzed_player = game.get_mut_player(player_id);
+      paralyzed_player.paralyzed = true;
+      paralyzed_player.spy_info.was_paralyzed = true;
+      paralyzed_player.messages.push(Message {
+          date: current_date,
+          source: String::from("Outil d'auto diagnostique"),
+          content: String::from("Vous avez été paralysé pendant la nuit, vous n'avez donc pas pu faire d'action spéciale"),
+      })
+  }
+
+  if kill {
+    if let Some((target_id, _)) = mutate_results {
+      return Some(target_id);
     }
-
-    return None;
+  }
+  return None;
 }
 
 

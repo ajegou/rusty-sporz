@@ -190,7 +190,17 @@ pub fn add_action_mutant(game: &mut dyn PlayerGame, actions_list: &mut Vec<Actio
     ActionType::Paralyze,
     |game: &mut dyn PlayerGame, interface: &mut Interface| run_target_action(game, interface, ActionType::Paralyze),
   );
-  // add kill
+  actions_list.push(Action::UserAction( // Action to choose between mutating or killing
+    if game.get_current_player().mutant_kill {
+      format!("Choisir de muter la cible [{}]", Color::FgRed.color("Tuer"))
+    } else {
+      format!("Choisir de tuer la cible [{}]", Color::FgGreen.color("Muter"))
+    },
+    |game: &mut dyn PlayerGame, _interface: &mut Interface| {
+      let current_player = game.get_mut_current_player();
+      current_player.mutant_kill = !current_player.mutant_kill;
+    }
+  ));
 }
 
 // Actions for roles
