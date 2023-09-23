@@ -159,18 +159,21 @@ impl Game for GameStatus {
           source: format!("Hacked {}", source),
           content: content.clone(),
         });
+        hacker.spy_info.woke_up = true; // Here and below, not great, only wake up if something happened
       } else if hacker.hacker_target == Some(Role::Geneticist) && source == "GenoTech v0.17" {
         hacker.send_message(Message {
           date: current_date,
           source: format!("Hacked {}", source),
           content: content.clone(),
         });
+        hacker.spy_info.woke_up = true;
       } else if hacker.hacker_target == Some(Role::Spy) && source == "Stalker IV" {
         hacker.send_message(Message {
           date: current_date,
           source: format!("Hacked {}", source),
           content: content.clone(),
         });
+        hacker.spy_info.woke_up = true;
       }
     }
 
