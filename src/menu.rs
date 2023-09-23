@@ -6,10 +6,21 @@ use rand::{Rng, seq::SliceRandom, thread_rng};
 
 pub fn display_home_menu (game: &mut dyn Game, interface: &mut Interface) {
   interface.clear_terminal();
+  let current_date = game.get_date();
   println!("Bienvenue sur le terminal de control du {}", Color::Bright.color(game.get_name()));
   match game.get_phase_of_day() {
-    PhaseOfDay::Day => println!("Nous sommes le {}ème jour après détection de l'infection", game.get_date()),
-    PhaseOfDay::Twilight => println!("Nous sommes au crépuscule du {}ème jour après détection de l'infection", game.get_date()),
+    PhaseOfDay::Day => {
+      println!("Nous sommes le {}ème jour après détection de l'infection", game.get_date());
+      let subtext = format!("Phase de journée: Vous pouvez voter pour un joueur à éliminer et choisis vos actions");
+      println!("* {}", subtext.as_str());
+    },
+    PhaseOfDay::Twilight => {
+      println!("Nous sommes au crépuscule du {}ème jour après détection de l'infection", current_date);
+      if let Some(dead_player) = game.get_all_players().find(|player| player.death_date == Some(current_date)) {
+        let subtext = format!("Phase crépusculaire: Suite à l'élimination de {} vous pouvez choisir de modifier vos actions", dead_player.name);
+        println!("* {}", Color::Bright.color(subtext.as_str()));
+      }
+    }
 }
   let mut actions_list: Vec<Action> = Vec::new();
   actions_list.push(GeneralAction(
@@ -312,10 +323,14 @@ pub fn display_menu_for_eliminated_player (game: &mut dyn Game, interface: &mut 
   println!("");
   interface.user_select_from(vec!["Aller dans le sas"].iter());
   println!("");
-  println!("J'ai le plaisir de vous annoncer que le reste de l'équipage à décider de vous libérer de vos responsabilités à bord");
+  println!("J'ai le plaisir de vous annoncer que le reste de l'équipage");
+  println!("à décider de vous libérer de vos responsabilités à bord");
   println!("Merci de sortir du vaisseau par le sas.");
   println!("");
   interface.user_select_from(vec!["Mourir"].iter());
+
+  interface.clear_terminal();
+  interface.play_death_sound();
 }
 
 pub fn display_menu_for_no_eliminated_player (game: &mut dyn Game, interface: &mut Interface, votes: HashMap<PlayerId, usize>) {

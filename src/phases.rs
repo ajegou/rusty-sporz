@@ -101,7 +101,7 @@ fn select_who_dies (interface: &mut Interface, game: &dyn Game, options: Vec<Opt
   return *interface.user_select_from_with_custom_display(options.iter(), displayer);
 }
 
-pub fn run_mutants_phase(game: &mut dyn Game) {
+pub fn run_mutants_phase(game: &mut dyn Game) -> Option<PlayerId> {
   let current_date = game.get_date(); // do better
 
     // Notify the mutants of who the other mutants are
@@ -166,10 +166,12 @@ pub fn run_mutants_phase(game: &mut dyn Game) {
             content: String::from("Vous avez été paralysé pendant la nuit, vous n'avez donc pas pu faire d'action spéciale"),
         })
     }
+
+    return None;
 }
 
 
-pub fn run_physicians_phase(game: &mut dyn Game) {
+pub fn run_physicians_phase(game: &mut dyn Game) -> Option<PlayerId> {
   // Cure one player
   let alive_players = game.get_players();
   let physicians = alive_players
@@ -247,6 +249,8 @@ pub fn run_physicians_phase(game: &mut dyn Game) {
       String::from("Équipe médicale"),
       String::from(format!("L'équipe médicale opérationelle de la nuit précédente ({}) est parvenue à soigner: [{}]", active_physician_names, cured_players_names)));
   }
+
+  return None;
 }
 
 pub fn run_it_phase(game: &mut dyn Game) {

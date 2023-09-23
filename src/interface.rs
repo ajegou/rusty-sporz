@@ -154,7 +154,7 @@ impl Interface {
     if let Some(sink) = &self.current_sink {
       sink.stop();
       self.current_sink = None;
-      self.current_source = None;
+      self.current_stream = None;
       self.current_stream_handle = None;
     }
   }

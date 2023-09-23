@@ -89,8 +89,8 @@ pub fn run_end_of_day (game: &mut dyn Game, interface: &mut Interface) {
 
 pub fn run_night(game: &mut dyn Game, interface: &mut Interface) {
 
-  run_mutants_phase(game);
-  run_physicians_phase(game);
+  let killed_by_mutants = run_mutants_phase(game);
+  let killed_by_physicians = run_physicians_phase(game);
   run_it_phase(game);
   run_psychologist_phase(game);
   run_geneticist_phase(game);
@@ -98,17 +98,21 @@ pub fn run_night(game: &mut dyn Game, interface: &mut Interface) {
 
   interface.clear_terminal();
   interface.wait_and_display("La nuit passe...", Duration::from_secs(5), Duration::from_millis(700));
-  let current_date = game.get_date();
-  let dead_players: Vec<String> = game.get_all_players()
-    .filter_map(|player| if player.death_date == Some(current_date) { Some(player.name.clone()) } else { None })
-    .collect();
-  if dead_players.len() == 0 {
+
+  if killed_by_mutants == None && killed_by_physicians == None {
     interface.play_no_death_good_sound();
     interface.user_validate("Rien à signaler pour cette nuit");
   } else {
+    let mut dead_players = Vec::new();
+    if let Some(player) = killed_by_mutants {
+      dead_players.push(game.get_player(player).name.clone());
+    }
+    if let Some(player) = killed_by_physicians {
+      dead_players.push(game.get_player(player).name.clone());
+    }
     interface.play_death_sound();
-    interface.user_validate(format!("C'est avec tristesse et amertume que nous vous annonçons la perte accidentelle de [{}] cette nuit",
-      dead_players.join(", ")).as_str());
+    interface.user_validate(format!("C'est avec tristesse et amertume que nous vous annonçons la perte accidentelle de {} cette nuit",
+      dead_players.join(" et ")).as_str());
   }
 
   game.prepare_new_turn();
