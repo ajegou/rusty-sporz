@@ -4,8 +4,9 @@ use crate::{
   message::Message,
   action::ActionType,
   helper::{compute_votes_results, compute_votes_winner},
-  player::{Player, PlayerId}, interface::{Interface, colors::Color}};
+  player::{Player, PlayerId}, interface::{Interface, colors::Color}, menu::{display_menu_for_eliminated_player, display_menu_for_no_eliminated_player}};
 
+use std::time::Duration;
 
 pub fn run_elimination_phase(interface: &mut Interface, game: &mut dyn Game) -> Option<PlayerId> {
   let current_date = game.get_date(); // do better
@@ -40,8 +41,7 @@ pub fn run_elimination_phase(interface: &mut Interface, game: &mut dyn Game) -> 
   match dead_crew_member {
     Some(player_id) => {
       let player = game.get_mut_player(player_id);
-      player.alive = false;
-      player.death_cause = Some(String::from("Aspiré·e accidentellement par le sas tribord"));
+      player.die(current_date, String::from("Aspiré·e accidentellement par le sas tribord"));
 
       let mut content = String::new();
       content.push_str(format!("Conformément à la volonté populaire, {} à été retiré du service actif.", player.name).as_str());
@@ -63,6 +63,8 @@ pub fn run_elimination_phase(interface: &mut Interface, game: &mut dyn Game) -> 
         source: String::from("Ordinateur Central"),
         content,
       });
+
+      display_menu_for_eliminated_player(game, interface, player_id);
       return Some(player_id);
     },
     None => {
@@ -70,7 +72,8 @@ pub fn run_elimination_phase(interface: &mut Interface, game: &mut dyn Game) -> 
         date: current_date,
         source: String::from("Ordinateur Central"),
         content: String::from("Tout le monde a très bien dormi cette nuit."),
-      });
+      });      
+      display_menu_for_no_eliminated_player(game, interface, elimination_results);
       return None;
     }
   }
@@ -89,8 +92,10 @@ fn select_who_dies (interface: &mut Interface, game: &dyn Game, options: Vec<Opt
   };
 
   interface.clear_terminal();
+  interface.wait_and_display("Évaluation des résultats en cours", Duration::from_secs(5), Duration::from_millis(700));
+
   // TODO: check the leader's code to validate
-  interface.play_alarm("Merci de faire venir le représentant du personnel!");
+  interface.play_warning("Merci de faire venir le représentant du personnel!");
   println!("");
   println!("Un des membres d'équipage suivant doit être éliminé:");
   return *interface.user_select_from_with_custom_display(options.iter(), displayer);

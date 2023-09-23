@@ -1,8 +1,10 @@
+use std::time::Duration;
 use std::{io, collections::HashMap};
 use std::io::Write;
 use std::fs::File;
 use std::io::BufReader;
-use rodio::Sink;
+use std::{thread, time};
+use rodio::{Sink, OutputStreamHandle};
 use rodio::{Decoder, OutputStream};
 
 use crate::{player::Player, action::Action, action::Action::{UserAction, GeneralAction}};
@@ -14,6 +16,10 @@ pub mod colors;
 pub struct Interface {
   debug: bool,
   input_mock: Vec<String>,
+  
+  current_sink: Option<Sink>,
+  current_stream: Option<OutputStream>,
+  current_stream_handle: Option<OutputStreamHandle>,
 }
 
 impl Interface {
@@ -21,6 +27,9 @@ impl Interface {
     Interface {
       debug,
       input_mock: Vec::new(),
+      current_sink: None,
+      current_stream: None,
+      current_stream_handle: None,
     }
   }
 
@@ -137,22 +146,59 @@ impl Interface {
     if self.debug {
         print!("\n##############################\n\n");
     } else {
-        print!("{}[2J", 27 as char);
+        print!("{esc}[2J{esc}[1;1H", esc = 27 as char);
     }
   }
 
+  fn stop_sound (&mut self) {
+    if let Some(sink) = &self.current_sink {
+      sink.stop();
+      self.current_sink = None;
+      self.current_source = None;
+      self.current_stream_handle = None;
+    }
+  }
+
+  pub fn play_warning (&mut self, message: &str) {
+    self.play_sound("sounds/Alarm_or_siren.mp3", 0.42);
+    self.user_validate(Color::Blink.color(message).as_str());
+    self.stop_sound();
+  }
+
   pub fn play_alarm (&mut self, message: &str) {
-    let filename = "sounds/Alarm_or_siren.mp3";
+    self.play_sound("sounds/Alarm_or_siren.mp3", 0.84);
+    self.user_validate(Color::Blink.color(message).as_str());
+    self.stop_sound();
+  }
+
+  pub fn play_no_death_good_sound (&mut self) {
+    self.play_sound("sounds/Cathedralofthedowns.mp3", 1.0);
+  }
+
+  pub fn play_death_sound (&mut self) {
+    self.play_sound("sounds/ChopinsFuneralMarch1906_2-short.mp3", 1.0);
+  }
+
+  fn play_sound (&mut self, filename: &str, speed: f32) {
+    self.stop_sound();
     let (_stream, stream_handle) = OutputStream::try_default().unwrap();
     let sink = Sink::try_new(&stream_handle).unwrap();
     let file = BufReader::new(File::open(filename).unwrap());
     let source = Decoder::new(file).unwrap();
 
-    // kind of ridiculous attempt at synchronizing the sound with the blink
-    sink.set_speed(0.42);
-
+    sink.set_speed(speed);
     sink.append(source);
-    self.user_validate(Color::Blink.color(message).as_str());
-    sink.stop();
+    
+    self.current_sink = Some(sink);
+    self.current_stream = Some(_stream);
+    self.current_stream_handle = Some(stream_handle);
+  }
+
+  pub fn wait_and_display (&mut self, message: &str, wait: Duration, display_interval: Duration) {
+    let now = time::Instant::now();
+    while now.elapsed() < wait {
+      thread::sleep(display_interval);
+      println!("{}", message);
+    }
   }
 }

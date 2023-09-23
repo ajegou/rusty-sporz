@@ -1,6 +1,8 @@
+use std::{collections::HashMap, time::Duration};
+
 use crate::{game::{Game, PlayerGame, PhaseOfDay}, interface::{Interface, colors::Color}, action::{Action, Action::{GeneralAction, UserAction}, ActionType, get_header_text, get_menu_text}, player::{Player, PlayerId}, role::Role, run_night, run_end_of_day};
 
-use rand::Rng;
+use rand::{Rng, seq::SliceRandom, thread_rng};
 
 pub fn display_home_menu (game: &mut dyn Game, interface: &mut Interface) {
   interface.clear_terminal();
@@ -293,4 +295,59 @@ pub fn add_log_out_action(actions_list: &mut Vec<Action>) {
 
 pub fn run_log_out(game: &mut dyn Game, _interface: &mut Interface) {
   game.set_current_player_id(None);
+}
+
+// Elimination result menu
+
+pub fn display_menu_for_eliminated_player (game: &mut dyn Game, interface: &mut Interface, player: PlayerId) {
+  interface.clear_terminal();
+  interface.wait_and_display("Évaluation des résultats en cours", Duration::from_secs(5), Duration::from_millis(700));
+
+  let player = game.get_player(player);
+  interface.clear_terminal();
+  interface.play_alarm(format!("Merci de faire venir {} immédiatement!", player.name).as_str());
+  // check code?
+  println!("");
+  println!("Retrouvez moi dans le sas tribord pour une communication urgente (et discrète)");
+  println!("");
+  interface.user_select_from(vec!["Aller dans le sas"].iter());
+  println!("");
+  println!("J'ai le plaisir de vous annoncer que le reste de l'équipage à décider de vous libérer de vos responsabilités à bord");
+  println!("Merci de sortir du vaisseau par le sas.");
+  println!("");
+  interface.user_select_from(vec!["Mourir"].iter());
+}
+
+pub fn display_menu_for_no_eliminated_player (game: &mut dyn Game, interface: &mut Interface, votes: HashMap<PlayerId, usize>) {
+  interface.clear_terminal();
+  interface.wait_and_display("Évaluation des résultats en cours", Duration::from_secs(5), Duration::from_millis(700));
+
+  let mut max_number_of_votes = 0;
+  let mut players_with_max_votes = Vec::new();
+  for (player, votes) in votes {
+    if votes >= max_number_of_votes {
+      if votes > max_number_of_votes {
+        max_number_of_votes = votes;
+        players_with_max_votes.clear();
+      }
+      players_with_max_votes.push(player);
+    }
+  }
+  players_with_max_votes.shuffle(&mut thread_rng());
+
+  if let Some(player) = players_with_max_votes.pop() {    
+    let player = game.get_player(player);
+    println!("");
+    interface.play_alarm(format!("Merci de faire venir {} immédiatement!", player.name).as_str());
+    // check code?
+    interface.clear_terminal();
+    println!("Retrouvez moi dans le sas tribord pour une communication urgente (et discrète)");
+    println!("");
+    interface.user_select_from(vec!["Aller dans le sas"].iter());
+    println!("");
+    println!("Je suis au regret de vous informer que {} membre(s) d'équipage ont conspiré pour vous éliminer", max_number_of_votes);
+    println!("Heureusement pour vous, ils n'étaient pas assez nombreux, vous mourrez un autre jour.");
+    println!("");
+    interface.user_select_from(vec!["Rentrer dans le vaisseau"].iter());
+  }
 }

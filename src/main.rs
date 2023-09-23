@@ -13,7 +13,8 @@ mod game_creator;
 use debug::{mock_game_creator, mock_game_vote_tie};
 use menu::{display_player_status_and_actions, display_home_menu};
 use phases::{run_elimination_phase, run_it_phase, run_mutants_phase, run_physicians_phase, run_psychologist_phase, run_spy_phase, run_geneticist_phase};
-use std::env;
+use player::Player;
+use std::{env, time::Duration};
 use game::{ Game, GameStatus };
 use std::error;
 
@@ -78,12 +79,10 @@ pub fn run_end_of_day (game: &mut dyn Game, interface: &mut Interface) {
       return;
     }
   }
+
   let victim = run_elimination_phase(interface, game);
   game.set_phase_of_day(game::PhaseOfDay::Twilight); // not sure who should control this
-  if let Some(victim) = victim {
-    // Do something, play an alarm, and call the one who died?
-    // Could be fun to also, in any case (dead or not) summon the one with the most votes :p
-  } else { // If no-one died we directly play the night
+  if victim.is_none() { // If no-one died we directly play the night
     run_night(game, interface);
   }
 }
@@ -96,6 +95,21 @@ pub fn run_night(game: &mut dyn Game, interface: &mut Interface) {
   run_psychologist_phase(game);
   run_geneticist_phase(game);
   run_spy_phase(game);
+
+  interface.clear_terminal();
+  interface.wait_and_display("La nuit passe...", Duration::from_secs(5), Duration::from_millis(700));
+  let current_date = game.get_date();
+  let dead_players: Vec<String> = game.get_all_players()
+    .filter_map(|player| if player.death_date == Some(current_date) { Some(player.name.clone()) } else { None })
+    .collect();
+  if dead_players.len() == 0 {
+    interface.play_no_death_good_sound();
+    interface.user_validate("Rien à signaler pour cette nuit");
+  } else {
+    interface.play_death_sound();
+    interface.user_validate(format!("C'est avec tristesse et amertume que nous vous annonçons la perte accidentelle de [{}] cette nuit",
+      dead_players.join(", ")).as_str());
+  }
 
   game.prepare_new_turn();
 

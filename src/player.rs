@@ -40,6 +40,7 @@ pub struct Player {
   pub alive: bool,
   pub infected: bool,
   pub paralyzed: bool,
+  pub death_date: Option<u32>,
   pub death_cause: Option<String>,
   pub auto_cure_physician: bool,
 
@@ -72,6 +73,7 @@ impl Player {
       alive: true,
       infected,
       paralyzed: false,
+      death_date: None,
       death_cause: None,
       auto_cure_physician: true,
       messages: Vec::new(),
@@ -87,6 +89,12 @@ impl Player {
     self.has_connected_today = false;
     self.spy_info = SpyData{ ..Default::default() };
     self.hacker_target = None;
+  }
+
+  pub fn die(&mut self, date: u32, death_cause: String) {
+    self.alive = false;
+    self.death_date = Some(date);
+    self.death_cause = Some(death_cause);
   }
 
   pub fn get_target(&self, action: &ActionType) -> Option<&PlayerId> {
