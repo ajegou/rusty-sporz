@@ -139,7 +139,15 @@ pub fn run_mutants_phase(game: &mut dyn Game) -> Option<PlayerId> {
   if let Some((target_id, _)) = mutate_results {
     let target_name = game.get_player(target_id).name.clone();
     if kill {
-      game.get_mut_player(target_id).die(current_date, String::from("Carbonisé·e dans la douche"));
+      game.get_mut_player(target_id).die(current_date, String::from("Carbonisé·e sous la douche"));
+      game.send_message(target_id,
+        String::from("Overmind"),
+        String::from("Nous avons décidé que vous n'étiez pas digne de rejoindre nos rangs, mais tout de même assez pour nous servir de repas"));
+      game.limited_broadcast(Message { // Notify mutants of who was killed
+          date: current_date,
+          source: String::from("Overmind"),
+          content: String::from(format!("Les arrangements ont été faits, {target_name} ne devrait pas se réveiller")),
+      }, & |player: &&mut &mut Player| player.infected);
     } else {
       game.limited_broadcast(Message { // Notify mutants of who was infected
           date: current_date,
@@ -290,7 +298,7 @@ pub fn run_physicians_phase(game: &mut dyn Game) -> Option<PlayerId> {
 
   if let Some(target) = killed_player {
     let current_date = game.get_date();
-    game.get_mut_player(target).die(current_date, String::from("Carbonisé·e dans la douche"));
+    game.get_mut_player(target).die(current_date, String::from("Carbonisé·e sous la douche"));
     game.send_message(target,
       String::from("Équipe médicale"),
       String::from("Le CHSCT à décidé que votre hygiène corporelle n'était pas compatible avec la survie du vaisseau, désolé."));
