@@ -82,6 +82,13 @@ impl <'a> GameCreator<'a> {
         println!("* {}: {} -- Attention, jouer sans {} risque de mener à une partie très courte", role, count, role);
       } else if role == &Role::Physician && count < &2 {
         println!("* {}: {} -- Attention, jouer avec moins de 2 {} est très difficile", role, count, role);
+      } else if role == &Role::Hacker && count >= &1 {
+        let hackable_roles = roles.get(&Role::Spy).unwrap_or(&0)
+          + roles.get(&Role::Psychologist).unwrap_or(&0)
+          + roles.get(&Role::Geneticist).unwrap_or(&0);
+        if hackable_roles < 2 {
+          println!("* {}: {} -- Attention, peu de cibles disponibles pour le {}: {}", role, count, role, hackable_roles);
+        }
       } else {
         println!("* {}: {}", role, count);
       }

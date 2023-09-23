@@ -235,8 +235,24 @@ pub fn add_action_spy(game: &mut dyn PlayerGame, actions_list: &mut Vec<Action>)
   );
 }
 
-pub fn add_action_hacker(_game: &mut dyn PlayerGame, _actions_list: &mut Vec<Action>) {
-  todo!();
+pub fn add_action_hacker(game: &mut dyn PlayerGame, actions_list: &mut Vec<Action>) {
+  actions_list.push(Action::UserAction( // Action to toggle auto-cure of other physicians
+    match game.get_current_player().hacker_target {
+      Some(target) => format!("Selectionner un role à pirater [{}]", target),
+      None => format!("Selectionner un role à pirater"),
+    },
+    |game: &mut dyn PlayerGame, interface: &mut Interface| {
+      let hackable_roles = vec![Role::Geneticist, Role::ITEngineer, Role::Spy];
+      let hackable_roles = game.get_players().iter()
+        .filter_map(|player| if hackable_roles.contains(&player.role) { Some(player.role) } else { None })
+        .collect::<Vec<Role>>();
+      if hackable_roles.len() == 0 {
+        interface.user_validate("Désolé, il n'y a personne que vous puissiez hacker");
+      } else {
+        game.get_mut_current_player().hacker_target = Some(*interface.user_select_from(hackable_roles.iter()));
+      }
+    }
+  ));
 }
 
 pub fn add_action_traitor(_game: &mut dyn PlayerGame, _actions_list: &mut Vec<Action>) {

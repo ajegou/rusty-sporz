@@ -8,6 +8,7 @@ use crate::backup::{backup_game, restore_game};
 use crate::message::Message;
 use crate::player::{Player, PlayerId};
 use crate::action::ActionType;
+use crate::role::Role;
 
 #[derive(PartialEq, Serialize, Deserialize)]
 pub enum PhaseOfDay {
@@ -72,6 +73,7 @@ pub trait Game {
   fn get_all_players(&self) -> Iter<'_, Player>;
   fn get_player_ids(&self, predicate: &dyn Fn(&&&Player) -> bool) -> Vec<PlayerId>; // returns only alive players
 
+  fn send_message(&mut self, target: PlayerId, source: String, content: String);
   fn broadcast (&mut self, message: Message);
   fn limited_broadcast(&mut self, message: Message, predicate: &dyn Fn(&&mut &mut Player) -> bool);
 
@@ -144,6 +146,40 @@ impl Game for GameStatus {
       .iter_mut()
       .filter(|player| player.alive)
       .collect();
+  }
+
+  fn send_message(&mut self, target: PlayerId, source: String, content: String) {
+    let current_date = self.get_date();
+
+    let hackers = self.players.iter_mut().filter(|player| player.alive == true && player.role == Role::Hacker);
+    for hacker in hackers {
+      if hacker.hacker_target == Some(Role::ITEngineer) && source == "Système de diagnostique" {
+        hacker.send_message(Message {
+          date: current_date,
+          source: format!("Hacked {}", source),
+          content: content.clone(),
+        });
+      } else if hacker.hacker_target == Some(Role::Geneticist) && source == "GenoTech v0.17" {
+        hacker.send_message(Message {
+          date: current_date,
+          source: format!("Hacked {}", source),
+          content: content.clone(),
+        });
+      } else if hacker.hacker_target == Some(Role::Spy) && source == "Stalker IV" {
+        hacker.send_message(Message {
+          date: current_date,
+          source: format!("Hacked {}", source),
+          content: content.clone(),
+        });
+      }
+    }
+
+    let player = self.get_mut_player(target);
+    player.send_message(Message {
+      date: current_date,
+      source,
+      content,
+    });
   }
 
   fn broadcast (&mut self, message: Message) {
@@ -256,6 +292,10 @@ impl <'b> Game for PlayerTurn<'b> { // Proxy everything to self.game
 
   fn get_mut_players(&mut self) -> Vec<&mut Player> {
     self.game.get_mut_players()
+  }
+
+  fn send_message(&mut self, target: PlayerId, source: String, content: String) {
+    self.game.send_message(target, source, content)
   }
 
   fn broadcast (&mut self, message: Message) {

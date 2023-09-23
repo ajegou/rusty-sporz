@@ -41,12 +41,13 @@ pub struct Player {
   pub infected: bool,
   pub paralyzed: bool,
   pub death_cause: Option<String>,
-  pub has_connected_today: bool,
   pub auto_cure_physician: bool,
 
   // daily data
+  pub has_connected_today: bool,
   pub actions: HashMap<ActionType, PlayerId>,
   pub spy_info: SpyData,
+  pub hacker_target: Option<Role>,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize, Clone, Copy)]
@@ -74,9 +75,10 @@ impl Player {
       death_cause: None,
       auto_cure_physician: true,
       messages: Vec::new(),
-      actions: HashMap::new(),
       has_connected_today: false,
+      actions: HashMap::new(),
       spy_info: SpyData{ ..Default::default() },
+      hacker_target: None,
     }
   }
 
@@ -84,6 +86,7 @@ impl Player {
     self.actions = HashMap::new();
     self.has_connected_today = false;
     self.spy_info = SpyData{ ..Default::default() };
+    self.hacker_target = None;
   }
 
   pub fn get_target(&self, action: &ActionType) -> Option<&PlayerId> {
