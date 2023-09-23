@@ -1,6 +1,6 @@
 X spy
 X geneticist
-* hacker
+X hacker
 * traitor
 X physician: allow activating an option to cure (or kill) the other physician is he doesn't wake up
   * add the kill variant
