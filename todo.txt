@@ -16,10 +16,14 @@ X elimination vote: should be a majority (including white votes), not absolute m
 * add a special key for dead people to see the full status
 * early end of game when mutants have won -> no more healthy physicians, at least 2 mutants
 X elimination vote -> players should be allowed to update their actions after the vote
-* in-game explanations
+* separate the text from the code (see how to properly do that, internationalization tools?)
 * fluf
+* in-game explanations
+* add a menu to ask general questions about the game anonymously
 X backup
-* proper arguments parsing
 * clean up main.rs
+* proper arguments parsing
 * somehow make a config with:
   X genomes + geneticist
+  * disable sound
+* see how build works elsewhere, especially for sound
